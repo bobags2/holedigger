@@ -65,7 +65,8 @@ def test_null_calibration_no_effect() -> None:
 def test_cost_units() -> None:
     rt = costs.commission_round_trip_bp("EURUSD", 1.1331)
     assert rt is not None and abs(rt - 0.443) < 0.002, rt
-    assert costs.commission_round_trip_bp("US500", 6000.0) is None
+    assert costs.commission_round_trip_bp("US500", 6000.0) == 0.0
+    assert costs.commission_round_trip_bp("FOOBAR", 10.0) is None
     be = costs.break_even_spread_bp(1.0, "EURUSD", 1.1331)
     assert be is not None and abs(be - 0.557) < 0.002, be
 

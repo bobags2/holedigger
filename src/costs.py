@@ -11,12 +11,23 @@ matters until then: it is the spread a candidate could pay and still break even.
 """
 from __future__ import annotations
 
-# USD per 1.00 lot, per side (see PER_SIDE note above).
-COMMISSION_PER_LOT = {"XAUUSD": 4.96, "EURUSD": 2.51, "GBPUSD": 2.97}
+# USD per 1.00 lot, per side (see PER_SIDE note above). Fusion Markets, 2026-10-05.
+# Zero-commission symbols still pay the spread; their round-trip cost is spread-only.
+COMMISSION_PER_LOT = {
+    "XAUUSD": 4.96,
+    "EURUSD": 2.51,
+    "GBPUSD": 2.97,
+    "XAGUSD": 3.69,
+    "XTIUSD": 0.0,
+    "US500": 0.0,
+    "NAS100": 0.0,
+    "USDX": 0.0,
+}
 PER_SIDE = True
 
 # Units of the base asset (or ounces) per 1.00 lot — standard cTrader contract sizes.
-LOT_UNITS = {"XAUUSD": 100.0, "EURUSD": 100_000.0, "GBPUSD": 100_000.0}
+# Only needed for symbols with non-zero commission.
+LOT_UNITS = {"XAUUSD": 100.0, "XAGUSD": 5000.0, "EURUSD": 100_000.0, "GBPUSD": 100_000.0}
 
 # Snapshots, for the record. Replace with the tape distribution when it exists.
 LIVE_SPREAD_OBSERVATION = {
@@ -34,6 +45,10 @@ def known_symbol(symbol: str) -> bool:
 def commission_round_trip_bp(symbol: str, price: float) -> float | None:
     """Round-trip commission in bp of notional. None when costs are unknown."""
     if symbol not in COMMISSION_PER_LOT:
+        return None
+    if COMMISSION_PER_LOT[symbol] == 0.0:
+        return 0.0
+    if symbol not in LOT_UNITS:
         return None
     notional = LOT_UNITS[symbol] * price
     per_side_bp = COMMISSION_PER_LOT[symbol] / notional * 1e4

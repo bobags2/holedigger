@@ -90,6 +90,10 @@ Broker commissions converted to bp of notional (last prices 2026-09-30):
 | bp per side | 0.119 | 0.222 | 0.224 |
 | round trip (if quoted per side) | 0.239 | 0.443 | 0.448 |
 
+All eight symbols are now wired: XAGUSD 3.69 $/lot → 0.244 bp round trip; XTIUSD, US500,
+NAS100 and USDX are zero-commission — for those the spread is the *entire* cost (and index
+CFD spreads are the broker's revenue, unlike raw FX, so the tape matters most there).
+
 Reversion edge per trade by timeframe (exact-adjacency rows): M1 0.008 · M5 0.038 · M15 0.096 ·
 M30 0.138 · H1 0.192 · H4 0.36 bp — the edge grows with horizon, but the t-stat collapses
 (H4: t < 2, gold flips negative) and per-day gross flattens at ~3–8 bp/day.
@@ -119,6 +123,23 @@ indices down; 7 of 8 symbols aligned), but its sign alignment was chosen *after*
 results, so it is not evidence yet — the correct next step is a pre-registered pooled test with
 a joint surrogate that preserves cross-symbol correlation. Full results:
 `artifacts/window_sweep.json`.
+
+### 6. Pooled re-test of the 03:00 cluster — pre-registered, negative
+
+The apparent 03:00 UTC cluster (dollar-strength direction, all eight symbols) was flagged in
+advance as post-hoc, then tested by `src/pooled_test.py` on the common 5-min grid: equal-risk
+oriented basket (USDX long, seven shorts), joint row permutations preserving cross-symbol
+correlation, family = all 69 windows.
+
+- candidate 03:00+1h: t_pooled = **1.01** (69.5th percentile of its own null)
+- family max |t_pooled| = 1.88 → **17th percentile** (null mean 2.36, p95 3.17)
+
+Per-symbol magnitudes were unchanged when restricted to the panel period (EURUSD −2.60,
+USDX +2.85), so the cluster was not a regime artifact — it was inside what chance produces.
+Construction note: the common grid attenuates measurements (entry/exit bars shift when any
+symbol is missing a 5-min bucket), which is why the decisive negative remains the original
+family null (46th percentile) computed on each symbol's own bars. Thread closed; no
+re-testing of the same hypothesis with new statistics.
 
 ## Layout
 
@@ -173,13 +194,11 @@ Price data comes from `../ctrader/history` and is never modified.
 1. Run the spread tape live: from `../ctrader`, `python -m ctbridge.tape --config config.json
    --minutes 60` (refresh the OAuth token first if stale). Replaces the snapshot spread with
    measured per-symbol/session distributions, then wire those into `src/costs.py`.
-2. Pre-registered pooled test of the 03:00 UTC dollar-strength cluster, calibrated with a
-   *joint* surrogate (cross-symbol correlation preserved).
-3. Next family: cross-asset dislocation reversion (US500/NAS100, XAUUSD/USDX, XTIUSD/USDX) —
+2. Next family: cross-asset dislocation reversion (US500/NAS100, XAUUSD/USDX, XTIUSD/USDX) —
    larger per-trade moves, same funnel and registry discipline.
-4. Symbol-holdout splits: select on 6 symbols, verify the same rule on 2 unseen ones.
-5. Mask audited `anomalous_months` inside feature builders rather than dropping the series.
-6. Scale the factory: block-length policy per family, more worlds, full-world surrogates
+3. Symbol-holdout splits: select on 6 symbols, verify the same rule on 2 unseen ones.
+4. Mask audited `anomalous_months` inside feature builders rather than dropping the series.
+5. Scale the factory: block-length policy per family, more worlds, full-world surrogates
    with synthetic OHLC for path-dependent rules.
 
 ## Field notes

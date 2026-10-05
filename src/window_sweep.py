@@ -64,24 +64,30 @@ def default_windows(holds: list[int] = HOLDS, max_exit: int = MAX_EXIT_HOUR) -> 
     return [(h, d) for d in holds for h in range(0, max_exit - d + 1)]
 
 
-def window_segments(s: Series, windows: list[tuple[int, int]]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def segments_from_times(
+    bar_time: np.ndarray, bar_day: np.ndarray, windows: list[tuple[int, int]]
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """(a, b, valid): bar indices of entry/exit per (day, window). Invalid entries are junk."""
-    days = np.unique(s.bar_day)
+    days = np.unique(bar_day)
     n_days, n_win = len(days), len(windows)
     a = np.zeros((n_days, n_win), dtype=np.int64)
     b = np.zeros((n_days, n_win), dtype=np.int64)
     entry_cut = np.array([h * 3600 for h, _ in windows], dtype=np.int64) * 10**9
     exit_cut = np.array([(h + d) * 3600 for h, d in windows], dtype=np.int64) * 10**9
-    starts = np.searchsorted(s.bar_day, days, side="left")
-    ends = np.searchsorted(s.bar_day, days, side="right")
+    starts = np.searchsorted(bar_day, days, side="left")
+    ends = np.searchsorted(bar_day, days, side="right")
     for i, (lo, hi) in enumerate(zip(starts, ends)):
-        times = s.bar_time[lo:hi] - days[i] * 86_400 * 10**9
+        times = bar_time[lo:hi] - days[i] * 86_400 * 10**9
         a[i] = lo + np.searchsorted(times, entry_cut, side="left")
         b[i] = lo + np.searchsorted(times, exit_cut, side="right") - 1
     valid = (b > a) & (b - a >= 2)
-    a = np.clip(a, 0, len(s.r) - 1)
-    b = np.clip(b, 0, len(s.r) - 1)
+    a = np.clip(a, 0, len(bar_time) - 1)
+    b = np.clip(b, 0, len(bar_time) - 1)
     return a, b, valid
+
+
+def window_segments(s: Series, windows: list[tuple[int, int]]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    return segments_from_times(s.bar_time, s.bar_day, windows)
 
 
 def pnl_matrix(S: np.ndarray, a: np.ndarray, b: np.ndarray, valid: np.ndarray) -> np.ndarray:
@@ -158,8 +164,9 @@ def run_sweep(
         sym = cand_sym[j]
         h, d = cand_win[j]
         comm = costs.commission_round_trip_bp(sym, series[sym].price)
-        be = edge_bp[j] if comm is None else edge_bp[j] - comm
-        net = None if comm is None else edge_bp[j] - comm
+        gross = abs(edge_bp[j])  # the tradeable direction is sign(edge)
+        be = gross if comm is None else gross - comm
+        net = None if comm is None else gross - comm
         rows.append(
             {
                 "symbol": sym,
