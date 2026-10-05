@@ -199,6 +199,39 @@ python -m tests.test_registry; python -m tests.test_surrogates; python -m tests.
 Requires Python 3.13 + numpy/pandas/pyarrow (global install is fine; see `requirements.txt`).
 Price data comes from `../ctrader/history` and is never modified.
 
+## Expanding the universe (softs, energy, metals)
+
+Next candidates: soft commodities (coffee, sugar, cocoa, grains, cotton) and further
+energy/metals (natural gas, copper, platinum/palladium). Priors that justify pre-registered
+families there: physical seasonality, thin books and slower arbitrage, roll/adjustment
+mechanics, and session-bounded hours (gap structure). The trade-off runs in reverse too:
+wider spreads and shorter data depth — both measured before anything is believed.
+
+Runbook. Never guess symbol names — `symbols` first, after any tape stops so you don't hold
+two live connections:
+
+```powershell
+# from ../ctrader
+python -m ctbridge.bridge --config config.json symbols --filter XCU   # locate copper etc.
+python -m ctbridge.bridge --config config.json backfill --symbols <names> --days 2200
+
+# from holedigger
+python -m src.audit  --symbols <names>       # depth / resolution / outages per symbol
+python -m src.ingest --symbols <names>       # parquet + manifest + read-back parity
+python -m src.window_sweep --symbols <names> --worlds 200
+python -m src.pair_sweep --pairs "XCUUSD/XNGUSD,..." --worlds 200
+
+# costs: zero-commission instruments are spread-only — tape them before ranking
+python -m ctbridge.tape --config config.json --symbols <names> --minutes 60
+python -m scripts.tape_analysis              # per-symbol / per-hour spread distributions
+```
+
+Multiplicity: every added symbol grows each family's candidate count and therefore its
+null-max bar (~sqrt(2 ln N)). That is correct behaviour, and more symbols also mean stronger
+cross-symbol replication evidence. Add commissions and lot sizes to `src/costs.py` when the
+broker's figures are known; unknown costs fall back to gross break-even. Exotic CFDs often
+have much shorter M1 depth than majors — the audit's `uniform_start` will say how short.
+
 ## Design rules this repo encodes
 
 1. **Audit before modelling.** Anything derived (features, labels, regimes) inherits
@@ -210,8 +243,9 @@ Price data comes from `../ctrader/history` and is never modified.
 3. **Calibrate against a null that contains no holes.** A candidate's bar is the null-max
    distribution of the *same search procedure*, not zero. Block length is an explicit,
    recorded choice sitting between the noise scale and the candidate horizon.
-4. **Every survivor needs a mechanism story and a measured cost model.** Neither exists yet;
-   that is the next phase, not a solved problem.
+4. **Every survivor needs a mechanism story and a measured cost model.** The cost model
+   exists (8/8 symbols; break-even spread reported per candidate). No survivor has needed to
+   pass it yet — three families, zero survivors, and that is the honest state.
 
 ## Next
 

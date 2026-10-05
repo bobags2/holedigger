@@ -7,7 +7,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from src.pair_sweep import PairData, run_pair_sweep, simulate_pair
+from src.pair_sweep import PairData, parse_pairs, run_pair_sweep, simulate_pair
 
 
 def make_pair(name_a="AAA", name_b="BBB", n_days=300, seed=0, planted=True, bars=288) -> PairData:
@@ -59,6 +59,15 @@ def test_simulate_handcrafted() -> None:
     assert list(tr["entry"]) == [2] and list(tr["exit"]) == [4], (tr["entry"], tr["exit"])
     # short the spread: pnl = -(la[4]-la[2]) = -(0.0015-0.002) = +0.0005
     assert np.isclose(tr["pnl"][0], 5e-4), tr["pnl"]
+
+
+def test_parse_pairs() -> None:
+    assert parse_pairs("eurusd/gbpusd, XAUUSD/USDX") == [("EURUSD", "GBPUSD"), ("XAUUSD", "USDX")]
+    try:
+        parse_pairs("nope")
+        raise AssertionError("expected ValueError")
+    except ValueError:
+        pass
 
 
 def main() -> None:

@@ -69,10 +69,27 @@ class PairData:
         return f"{self.a}/{self.b}"
 
 
+def parse_pairs(spec: str) -> list[tuple[str, str]]:
+    """Parse 'A/B,C/D' into [('A','B'), ('C','D')]."""
+    pairs = []
+    for chunk in spec.split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        a, _, b = chunk.partition("/")
+        if not (a and b):
+            raise ValueError(f"bad pair spec {chunk!r}; expected 'A/B'")
+        pairs.append((a.strip().upper(), b.strip().upper()))
+    return pairs
+
+
 def build_pair(a: str, b: str) -> PairData:
     closes = {}
     for sym in (a, b):
-        df = pd.read_parquet(config.PARQUET_DIR / f"{sym}_M1.parquet").set_index("ts")
+        path = config.PARQUET_DIR / f"{sym}_M1.parquet"
+        if not path.exists():
+            raise SystemExit(f"missing {path.name} — run `python -m src.ingest --symbols {sym}` first")
+        df = pd.read_parquet(path).set_index("ts")
         closes[sym] = df.resample("5min").last().dropna()["close"]
     wide = pd.concat(closes, axis=1).dropna()
     return PairData(a, b, wide.index, np.log(wide[a].to_numpy()), np.log(wide[b].to_numpy()),
@@ -232,11 +249,13 @@ def run_pair_sweep(pairs: list[PairData], n_worlds: int, seed: int = config.SEED
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--worlds", type=int, default=200)
+    ap.add_argument("--pairs", default=None, help="comma-separated A/B list (default: the built-in six)")
     ap.add_argument("--out", type=Path, default=config.ARTIFACTS_DIR / "pair_sweep.json")
     args = ap.parse_args()
 
     config.ensure_dirs()
-    pairs = [build_pair(a, b) for a, b in PAIRS]
+    pair_specs = parse_pairs(args.pairs) if args.pairs else PAIRS
+    pairs = [build_pair(a, b) for a, b in pair_specs]
 
     reg = Registry(config.REGISTRY_PATH)
     for p in pairs:
