@@ -4,8 +4,9 @@ Search market data for exploitable structure — dislocations, forced-flow finge
 microstructure holes — instead of forecasting prices, with the multiple-testing problem
 treated as the central engineering constraint rather than a footnote.
 
-**v0 status: data audit + parquet layer + surrogate null factory + selection-bias floor +
-one calibration look on real data. No cost model, no sweeps, no candidates yet.**
+**Status: data audit + parquet layer + null factory + selection-bias floor + broker cost model
+(Fusion Markets) + first registered family sweep (552 candidates — empty, correctly) + live
+spread tape (built and tested; needs one live run). No live-money candidates yet.**
 
 ## Why the framing
 
@@ -100,6 +101,25 @@ loses 0.05–0.44 bp per trade. Commission is invariant to order type, so limit 
 rescue this family; the spread-*earning* variant (passive fills, adverse selection) is a
 different business and needs quote data to evaluate — see Next.
 
+### 5. First registered sweep: fixed session windows (`src/window_sweep.py`)
+
+552 candidates = 8 symbols × 69 windows (entry on hours 00–19 UTC; holds 1/2/4/8h; exit capped
+20:00 UTC so no trade crosses the daily break). Statistic: |t| of the mean per-trade log return,
+calibrated as a family against 200 per-symbol permutation worlds. Every candidate registered in
+`artifacts/registry.jsonl` before evaluation.
+
+- null family max |t|: mean 3.20, p95 3.85, max 4.53 (analytic E[max] reference 3.05)
+- real family max |t| = **3.16 → 46th percentile. The family is empty.**
+
+What the calibration buys: the top rows look genuinely attractive in isolation — XAGUSD
+10:00–11:00 short pays 2.86 bp/trade (t = −3.16, negative in both halves), XAUUSD 00:00 +2h pays
+2.27 bp (net of commission +2.03) — and all of it is inside what 552 tries on shuffled worlds
+produce by chance. A coherent-looking cluster exists at 03:00 UTC (dollar up; majors, gold and
+indices down; 7 of 8 symbols aligned), but its sign alignment was chosen *after* looking at the
+results, so it is not evidence yet — the correct next step is a pre-registered pooled test with
+a joint surrogate that preserves cross-symbol correlation. Full results:
+`artifacts/window_sweep.json`.
+
 ## Layout
 
 ```
@@ -108,7 +128,10 @@ src/ingest.py       CSV -> parquet (+raw/curated split, sha256, read-back parity
 src/surrogates.py   null factory: joint time-index permutation / Politis-Romano bootstrap
 src/noise_floor.py  selection-bias floor: E[max t] over N trials, validated
 src/registry.py     append-only hypothesis registry; evaluate-before-register raises
+src/costs.py        broker cost model (commission table, break-even spread)
+src/window_sweep.py first registered family: session windows + null calibration + registry
 scripts/first_look.py  end-to-end calibration smoke on real data
+scripts/cost_probe.py  edge vs costs by timeframe and move-size bucket
 tests/              contract tests for the statistical core (plain python, no pytest)
 ```
 
@@ -119,8 +142,13 @@ python -m src.audit                    # ~20s, writes artifacts/audit/
 python -m src.ingest                   # ~30s, writes data/parquet/ + manifest
 python -m src.noise_floor --years 5.9  # selection-bias floor table
 python -m scripts.first_look           # toy family vs surrogate null
+python -m scripts.cost_probe           # edge vs costs by timeframe and move-size bucket
+python -m src.window_sweep --worlds 200  # first registered family sweep (~30s)
 
-python -m tests.test_registry; python -m tests.test_surrogates; python -m tests.test_noise_floor
+python -m tests.test_registry; python -m tests.test_surrogates; python -m tests.test_noise_floor; python -m tests.test_window_sweep
+
+# live spread tape (run from ../ctrader; refresh the token first if stale):
+# python -m ctbridge.tape --config config.json --minutes 60
 ```
 
 Requires Python 3.13 + numpy/pandas/pyarrow (global install is fine; see `requirements.txt`).
@@ -142,13 +170,16 @@ Price data comes from `../ctrader/history` and is never modified.
 
 ## Next
 
-1. Cost model: log live bid/ask through `ctbridge` into a spread tape per symbol/session;
-   measured spreads become part of every evaluation.
-2. Mechanism-prioritized generators (session opens, rollover and swap windows, dividend/index
-   adjustments, calendar) registered with an explicit family budget.
-3. Symbol-holdout splits: select on 6 symbols, verify the same rule on 2 unseen ones.
-4. Mask audited `anomalous_months` inside feature builders rather than dropping the series.
-5. Scale the factory: block-length policy per family, more worlds, and full-world surrogates
+1. Run the spread tape live: from `../ctrader`, `python -m ctbridge.tape --config config.json
+   --minutes 60` (refresh the OAuth token first if stale). Replaces the snapshot spread with
+   measured per-symbol/session distributions, then wire those into `src/costs.py`.
+2. Pre-registered pooled test of the 03:00 UTC dollar-strength cluster, calibrated with a
+   *joint* surrogate (cross-symbol correlation preserved).
+3. Next family: cross-asset dislocation reversion (US500/NAS100, XAUUSD/USDX, XTIUSD/USDX) —
+   larger per-trade moves, same funnel and registry discipline.
+4. Symbol-holdout splits: select on 6 symbols, verify the same rule on 2 unseen ones.
+5. Mask audited `anomalous_months` inside feature builders rather than dropping the series.
+6. Scale the factory: block-length policy per family, more worlds, full-world surrogates
    with synthetic OHLC for path-dependent rules.
 
 ## Field notes
