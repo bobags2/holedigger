@@ -5,8 +5,8 @@ microstructure holes — instead of forecasting prices, with the multiple-testin
 treated as the central engineering constraint rather than a footnote.
 
 **Status: data audit + parquet layer + null factory + selection-bias floor + broker cost model
-(Fusion Markets) + first registered family sweep (552 candidates — empty, correctly) + live
-spread tape (built and tested; needs one live run). No live-money candidates yet.**
+(Fusion Markets, 8/8 symbols) + three registered families (645 hypotheses — empty, correctly)
++ live spread tape (recording; analyzer ready). No live-money candidates yet.**
 
 ## Why the framing
 
@@ -141,6 +141,24 @@ symbol is missing a 5-min bucket), which is why the decisive negative remains th
 family null (46th percentile) computed on each symbol's own bars. Thread closed; no
 re-testing of the same hypothesis with new statistics.
 
+### 7. Pair dislocation reversion — pre-registered, negative
+
+Six pairs with mechanism stories (sibling indices, metals, European majors, gold/oil vs the
+dollar index), one fixed rule: rolling 2-day beta from levels OLS (trailing window, no
+look-ahead), 5-day spread z-score, enter |z| ≥ {2, 3}, exit |z| ≤ {0, 0.5} or 1-day timeout,
+one position per pair. 24 candidates, joint-permutation null (contemporaneous co-movement
+preserved, serial structure destroyed).
+
+- null family max |t|: mean 2.13, p95 3.03
+- real family max |t| = **1.70 → 23.5th percentile. The family is empty.**
+
+Shape notes: where there is any signal it points at *continuation*, not reversion —
+US500/NAS100 dislocations keep going (reversion edge −3.8 bp/trade, t = −1.7; the momentum
+side would clear its zero commissions comfortably, at still-noise |t|). XTIUSD/USDX
+dislocations are large (+23 bp/trade) and hopelessly noisy (n = 76, t = 0.6, avg |β| 5.3).
+Most trades run to the timeout instead of reverting to the exit level — at this timescale,
+dislocations persist. Results: `artifacts/pair_sweep.json`.
+
 ## Layout
 
 ```
@@ -150,9 +168,12 @@ src/surrogates.py   null factory: joint time-index permutation / Politis-Romano 
 src/noise_floor.py  selection-bias floor: E[max t] over N trials, validated
 src/registry.py     append-only hypothesis registry; evaluate-before-register raises
 src/costs.py        broker cost model (commission table, break-even spread)
-src/window_sweep.py first registered family: session windows + null calibration + registry
+src/window_sweep.py family 1: session windows + null calibration + registry
+src/pooled_test.py  pre-registered pooled dollar-strength test (joint surrogate)
+src/pair_sweep.py   family 3: pair dislocation reversion (rolling beta/z, sequential sim)
 scripts/first_look.py  end-to-end calibration smoke on real data
 scripts/cost_probe.py  edge vs costs by timeframe and move-size bucket
+scripts/tape_analysis.py  spread distributions from a live tape
 tests/              contract tests for the statistical core (plain python, no pytest)
 ```
 
@@ -164,9 +185,12 @@ python -m src.ingest                   # ~30s, writes data/parquet/ + manifest
 python -m src.noise_floor --years 5.9  # selection-bias floor table
 python -m scripts.first_look           # toy family vs surrogate null
 python -m scripts.cost_probe           # edge vs costs by timeframe and move-size bucket
-python -m src.window_sweep --worlds 200  # first registered family sweep (~30s)
+python -m src.window_sweep --worlds 200  # family 1: session windows (~30s)
+python -m src.pooled_test --worlds 200   # pre-registered dollar-strength re-test (~20s)
+python -m src.pair_sweep --worlds 200    # family 3: pair dislocations (~2 min)
+python -m scripts.tape_analysis          # analyze newest ../ctrader/tape/*.csv
 
-python -m tests.test_registry; python -m tests.test_surrogates; python -m tests.test_noise_floor; python -m tests.test_window_sweep
+python -m tests.test_registry; python -m tests.test_surrogates; python -m tests.test_noise_floor; python -m tests.test_window_sweep; python -m tests.test_pooled; python -m tests.test_pair_sweep
 
 # live spread tape (run from ../ctrader; refresh the token first if stale):
 # python -m ctbridge.tape --config config.json --minutes 60
@@ -191,12 +215,12 @@ Price data comes from `../ctrader/history` and is never modified.
 
 ## Next
 
-1. Run the spread tape live: from `../ctrader`, `python -m ctbridge.tape --config config.json
-   --minutes 60` (refresh the OAuth token first if stale). Replaces the snapshot spread with
-   measured per-symbol/session distributions, then wire those into `src/costs.py`.
-2. Next family: cross-asset dislocation reversion (US500/NAS100, XAUUSD/USDX, XTIUSD/USDX) —
-   larger per-trade moves, same funnel and registry discipline.
-3. Symbol-holdout splits: select on 6 symbols, verify the same rule on 2 unseen ones.
+1. Analyze the live tape (`scripts/tape_analysis.py`) → per-symbol/hour spread distributions;
+   wire measured spreads into `src/costs.py`, then re-rank the session-window near-misses.
+2. Symbol-holdout splits: select on 6 symbols, verify the same rule on 2 unseen ones.
+3. Project-level multiplicity: 645 hypotheses are registered; when a candidate survives its
+   family null, the registry is what lets the cross-family selection bias be priced
+   (White/Hansen style) instead of asserted away.
 4. Mask audited `anomalous_months` inside feature builders rather than dropping the series.
 5. Scale the factory: block-length policy per family, more worlds, full-world surrogates
    with synthetic OHLC for path-dependent rules.
