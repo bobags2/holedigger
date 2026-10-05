@@ -19,6 +19,14 @@ REGISTRY_PATH = ARTIFACTS_DIR / "registry.jsonl"
 
 SYMBOLS = ["EURUSD", "GBPUSD", "XAUUSD", "US500", "NAS100", "USDX", "XTIUSD", "XAGUSD"]
 
+# Universe expansion, verified against Fusion's live symbol list (274 symbols, 2026-10-05).
+SOFT_COMMODITIES = [
+    "COFARA", "COFROB", "CORN", "COTTON", "OJ", "SOYBEAN", "SUGAR", "SUGARRAW",
+    "UKCOCOA", "USCOCOA", "WHEAT",
+]
+ENERGY_METALS = ["XNGUSD", "XBRUSD", "XCUUSD", "XALUSD", "XNIUSD", "XPBUSD", "XZNUSD", "XPTUSD", "XPDUSD"]
+EXPANSION_SYMBOLS = SOFT_COMMODITIES + ENERGY_METALS
+
 # Fallback curation start when no audit report exists. The audit measures a
 # per-symbol `uniform_start` (first month of honestly-uniform M1) and overrides this.
 CURATED_START = "2021-01-01"
