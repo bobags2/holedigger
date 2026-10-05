@@ -79,6 +79,27 @@ breakeven, and ~10–40× below realistic retail spreads. Statistically overwhel
 economically dead — the exact shape of the queue: both verdicts are required, and the
 second one is not optional.
 
+### 4. Cost probe (`scripts/cost_probe.py`)
+
+Broker commissions converted to bp of notional (last prices 2026-09-30):
+
+| | XAUUSD | EURUSD | GBPUSD |
+|---|---|---|---|
+| $ / 1.00 lot | 4.96 | 2.51 | 2.97 |
+| bp per side | 0.119 | 0.222 | 0.224 |
+| round trip (if quoted per side) | 0.239 | 0.443 | 0.448 |
+
+Reversion edge per trade by timeframe (exact-adjacency rows): M1 0.008 · M5 0.038 · M15 0.096 ·
+M30 0.138 · H1 0.192 · H4 0.36 bp — the edge grows with horizon, but the t-stat collapses
+(H4: t < 2, gold flips negative) and per-day gross flattens at ~3–8 bp/day.
+
+Conditioning on prior-move size (M5, top-5% moves, where a limit-order variant would have to
+live): best cell in the entire grid is GBPUSD at 0.221 bp/trade against 0.224 bp round-trip
+commission under the most generous cost reading — break-even before spread. Everything else
+loses 0.05–0.44 bp per trade. Commission is invariant to order type, so limit orders cannot
+rescue this family; the spread-*earning* variant (passive fills, adverse selection) is a
+different business and needs quote data to evaluate — see Next.
+
 ## Layout
 
 ```
