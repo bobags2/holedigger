@@ -5,8 +5,9 @@ microstructure holes — instead of forecasting prices, with the multiple-testin
 treated as the central engineering constraint rather than a footnote.
 
 **Status: data audit + parquet layer + null factory + selection-bias floor + broker cost model
-(Fusion Markets, 8/8 symbols) + three registered families (645 hypotheses — empty, correctly)
-+ live spread tape (recording; analyzer ready). No live-money candidates yet.**
+(Fusion Markets, 8/8 symbols) + measured spreads from the live tape (0.26–3.52 bp round trips;
+per-hour distributions) + three registered families (645 hypotheses — empty, correctly). No
+live-money candidates yet.**
 
 ## Why the framing
 
@@ -91,8 +92,26 @@ Broker commissions converted to bp of notional (last prices 2026-09-30):
 | round trip (if quoted per side) | 0.239 | 0.443 | 0.448 |
 
 All eight symbols are now wired: XAGUSD 3.69 $/lot → 0.244 bp round trip; XTIUSD, US500,
-NAS100 and USDX are zero-commission — for those the spread is the *entire* cost (and index
-CFD spreads are the broker's revenue, unlike raw FX, so the tape matters most there).
+NAS100 and USDX are zero-commission — for those the spread is the *entire* cost.
+
+Spreads are now measured (live tape, 2026-10-05 16:21–17:21 UTC, 44,369 quotes; medians;
+a round trip pays the spread once):
+
+| symbol | spread bp | commission bp | **total round trip** |
+|---|---|---|---|
+| NAS100 | 0.26 | 0.00 | **0.26** |
+| US500 | 0.39 | 0.00 | **0.39** |
+| XAUUSD | 0.19 | 0.24 | **0.43** |
+| EURUSD | 0.00 | 0.44 | **0.44** |
+| GBPUSD | 0.00 | 0.45 | **0.45** |
+| USDX | 1.86 | 0.00 | **1.86** |
+| XTIUSD | 3.23 | 0.00 | **3.23** |
+| XAGUSD | 3.28 | 0.24 | **3.52** |
+
+The cheap instruments are the FX majors, gold and the two equity indices. The four
+"zero-commission" symbols are *not* the cheap ones — oil, silver and USDX are the expensive
+ones (the broker earns in the spread there). Full distribution:
+`artifacts/tape_summary.json`.
 
 Reversion edge per trade by timeframe (exact-adjacency rows): M1 0.008 · M5 0.038 · M15 0.096 ·
 M30 0.138 · H1 0.192 · H4 0.36 bp — the edge grows with horizon, but the t-stat collapses
@@ -123,6 +142,11 @@ indices down; 7 of 8 symbols aligned), but its sign alignment was chosen *after*
 results, so it is not evidence yet — the correct next step is a pre-registered pooled test with
 a joint surrogate that preserves cross-symbol correlation. Full results:
 `artifacts/window_sweep.json`.
+
+With measured costs the top rows split cleanly: the XAGUSD and USDX candidates (2–3 bp gross
+edges) are **cost-dead** — silver alone pays 3.5 bp round trip — while the XAUUSD (+1.8, +0.8),
+NAS100 (+1.7, +1.3) and EURUSD (+0.1–0.4) rows clear their measured costs and die on the
+family null alone.
 
 ### 6. Pooled re-test of the 03:00 cluster — pre-registered, negative
 

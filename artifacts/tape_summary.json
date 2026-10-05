@@ -1,0 +1,128 @@
+{
+  "hourly_median_spread_bp": {
+    "EURUSD": {
+      "16": 0.0,
+      "17": 0.0
+    },
+    "GBPUSD": {
+      "16": 0.0,
+      "17": 0.0
+    },
+    "NAS100": {
+      "16": 0.2579,
+      "17": 0.2579
+    },
+    "US500": {
+      "16": 0.3861,
+      "17": 0.3861
+    },
+    "USDX": {
+      "16": 1.8583,
+      "17": 1.8579
+    },
+    "XAGUSD": {
+      "16": 3.2795,
+      "17": 3.6082
+    },
+    "XAUUSD": {
+      "16": 0.1696,
+      "17": 0.2421
+    },
+    "XTIUSD": {
+      "16": 3.2346,
+      "17": 2.1638
+    }
+  },
+  "per_symbol": {
+    "EURUSD": {
+      "crossed_share": 0.0,
+      "events": 2780,
+      "first": "2026-10-05T16:21:43.794Z",
+      "last": "2026-10-05T17:21:41.367Z",
+      "median_spread_bp": 0.0,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 0.0,
+      "p99_spread_bp": 0.0,
+      "zero_share": 0.9974820143884892
+    },
+    "GBPUSD": {
+      "crossed_share": 0.0,
+      "events": 3443,
+      "first": "2026-10-05T16:21:43.795Z",
+      "last": "2026-10-05T17:21:41.582Z",
+      "median_spread_bp": 0.0,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 0.0,
+      "p99_spread_bp": 0.0,
+      "zero_share": 0.9973860005808888
+    },
+    "NAS100": {
+      "crossed_share": 0.0,
+      "events": 13909,
+      "first": "2026-10-05T16:21:43.795Z",
+      "last": "2026-10-05T17:21:42.838Z",
+      "median_spread_bp": 0.257903,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 0.258032,
+      "p99_spread_bp": 0.258243,
+      "zero_share": 0.0
+    },
+    "US500": {
+      "crossed_share": 0.0,
+      "events": 1456,
+      "first": "2026-10-05T16:21:43.795Z",
+      "last": "2026-10-05T17:21:40.689Z",
+      "median_spread_bp": 0.386118,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 0.386392,
+      "p99_spread_bp": 0.38665885,
+      "zero_share": 0.0
+    },
+    "USDX": {
+      "crossed_share": 0.0,
+      "events": 1147,
+      "first": "2026-10-05T16:21:43.795Z",
+      "last": "2026-10-05T17:21:39.442Z",
+      "median_spread_bp": 1.858254,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 2.347096,
+      "p99_spread_bp": 2.347441,
+      "zero_share": 0.0
+    },
+    "XAGUSD": {
+      "crossed_share": 0.0,
+      "events": 5763,
+      "first": "2026-10-05T16:21:43.795Z",
+      "last": "2026-10-05T17:21:42.767Z",
+      "median_spread_bp": 3.28224,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 3.773368,
+      "p99_spread_bp": 3.942311,
+      "zero_share": 0.0
+    },
+    "XAUUSD": {
+      "crossed_share": 0.0,
+      "events": 11340,
+      "first": "2026-10-05T16:21:43.795Z",
+      "last": "2026-10-05T17:21:43.645Z",
+      "median_spread_bp": 0.193818,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 0.2662831,
+      "p99_spread_bp": 0.31496098,
+      "zero_share": 0.0
+    },
+    "XTIUSD": {
+      "crossed_share": 0.0,
+      "events": 4531,
+      "first": "2026-10-05T16:21:43.795Z",
+      "last": "2026-10-05T17:21:42.713Z",
+      "median_spread_bp": 3.233212,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 3.242998,
+      "p99_spread_bp": 3.246507,
+      "zero_share": 0.0
+    }
+  },
+  "rows": 44369,
+  "tape": "Z:\\projects\\ctrader\\tape\\tape_20261005_162141.csv"
+}

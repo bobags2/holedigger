@@ -164,9 +164,11 @@ def run_sweep(
         sym = cand_sym[j]
         h, d = cand_win[j]
         comm = costs.commission_round_trip_bp(sym, series[sym].price)
+        spread = costs.ADOPTED_SPREAD_BP.get(sym, 0.0)
         gross = abs(edge_bp[j])  # the tradeable direction is sign(edge)
         be = gross if comm is None else gross - comm
         net = None if comm is None else gross - comm
+        net_tape = None if comm is None else gross - comm - spread
         rows.append(
             {
                 "symbol": sym,
@@ -177,8 +179,10 @@ def run_sweep(
                 "n": int(n_real[j]),
                 "own_null_percentile": float(per_candidate_pct[j]),
                 "commission_rt_bp": comm,
+                "spread_rt_bp": spread,
                 "break_even_spread_bp": be,
                 "net_bp_spread0": net,
+                "net_bp_tape": net_tape,
                 "t_first_half": float(half_t[(sym, 0)][windows.index((h, d))]),
                 "t_second_half": float(half_t[(sym, 1)][windows.index((h, d))]),
             }
@@ -264,8 +268,9 @@ def main() -> None:
                 "own_null_percentile": round(row["own_null_percentile"], 4),
                 "break_even_spread_bp": None if row["break_even_spread_bp"] is None else round(row["break_even_spread_bp"], 5),
                 "net_bp_spread0": None if row["net_bp_spread0"] is None else round(row["net_bp_spread0"], 5),
+                "net_bp_tape": None if row["net_bp_tape"] is None else round(row["net_bp_tape"], 5),
             },
-            {"null": {"mean_block": 1.0, "worlds": args.worlds}, "spread_bp": 0.0},
+            {"null": {"mean_block": 1.0, "worlds": args.worlds}, "spread": "adopted per symbol (tape 2026-10-05)"},
         )
 
     with args.out.open("w", encoding="utf-8") as f:
@@ -279,16 +284,17 @@ def main() -> None:
     print(f"real family max |t| = {result['family']['real_max_abs_t']:.2f}"
           f" -> percentile {100 * result['family']['percentile']:.1f}%, z = {result['family']['z']:.2f}\n")
 
-    hdr = f"{'symbol':>7} {'window':>12} {'edge bp':>9} {'t':>7} {'n':>6} {'own%':>6} {'BE spr':>8} {'net@0':>7} {'t1':>7} {'t2':>7}"
+    hdr = (f"{'symbol':>7} {'window':>12} {'edge bp':>9} {'t':>7} {'n':>6} {'own%':>6}"
+           f" {'BE spr':>7} {'net@tape':>9} {'t1':>6} {'t2':>6}")
     print(hdr)
     print("-" * len(hdr))
     for row in result["candidates"][:15]:
         be = "n/a" if row["break_even_spread_bp"] is None else f"{row['break_even_spread_bp']:.3f}"
-        net = "n/a" if row["net_bp_spread0"] is None else f"{row['net_bp_spread0']:.3f}"
+        net = "n/a" if row["net_bp_tape"] is None else f"{row['net_bp_tape']:.3f}"
         win = f"{row['entry_hour_utc']:02d}+{row['hold_hours']}h"
         print(
             f"{row['symbol']:>7} {win:>12} {row['edge_bp']:>9.4f} {row['t']:>7.2f} {row['n']:>6}"
-            f" {row['own_null_percentile']:>6.3f} {be:>8} {net:>7} {row['t_first_half']:>7.2f} {row['t_second_half']:>7.2f}"
+            f" {row['own_null_percentile']:>6.3f} {be:>7} {net:>9} {row['t_first_half']:>6.2f} {row['t_second_half']:>6.2f}"
         )
 
     print("\nreplication of top windows across symbols (t-stat):")

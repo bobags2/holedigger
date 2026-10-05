@@ -29,13 +29,25 @@ PER_SIDE = True
 # Only needed for symbols with non-zero commission.
 LOT_UNITS = {"XAUUSD": 100.0, "XAGUSD": 5000.0, "EURUSD": 100_000.0, "GBPUSD": 100_000.0}
 
-# Snapshots, for the record. Replace with the tape distribution when it exists.
+# Measured from the live tape (ctbridge.tape, 2026-10-05 16:21–17:21 UTC; medians;
+# full distribution in artifacts/tape_summary.json). A round trip pays the spread once.
 LIVE_SPREAD_OBSERVATION = {
-    "observed_utc": "2026-10-05",
+    "observed_utc": "2026-10-05T16:21/17:21",
     "broker": "Fusion Markets",
-    "note": "EURUSD/GBPUSD 0.0 pips, XAUUSD <= ~0.4 pips top-of-book, liquid session",
+    "source": "tape_20261005_162141.csv (44,369 quotes)",
+    "note": "EURUSD/GBPUSD 99.7% zero-spread; XAUUSD 0.19 bp; indices 0.26-0.39 bp; "
+            "silver 3.28, oil 3.23, USDX 1.86 bp",
 }
-ADOPTED_SPREAD_BP = {"XAUUSD": 0.0, "EURUSD": 0.0, "GBPUSD": 0.0}
+ADOPTED_SPREAD_BP = {
+    "EURUSD": 0.000,
+    "GBPUSD": 0.000,
+    "XAUUSD": 0.194,
+    "XAGUSD": 3.282,
+    "XTIUSD": 3.233,
+    "US500": 0.386,
+    "NAS100": 0.258,
+    "USDX": 1.858,
+}
 
 
 def known_symbol(symbol: str) -> bool:

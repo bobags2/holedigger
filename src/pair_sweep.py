@@ -179,11 +179,15 @@ def run_pair_sweep(pairs: list[PairData], n_worlds: int, seed: int = config.SEED
             tr = simulate_pair(p.la, p.lb, beta, z, z0, zx)
             t = _tstat(tr["pnl"])
             cost_bp = None
+            cost_total = None
             if costs.known_symbol(p.a) and costs.known_symbol(p.b):
                 ca = costs.commission_round_trip_bp(p.a, p.price_a)
                 cb = costs.commission_round_trip_bp(p.b, p.price_b)
+                sa = costs.ADOPTED_SPREAD_BP.get(p.a, 0.0)
+                sb = costs.ADOPTED_SPREAD_BP.get(p.b, 0.0)
                 if ca is not None and cb is not None and len(tr["beta"]):
                     cost_bp = float(np.mean(ca + np.abs(tr["beta"]) * cb))
+                    cost_total = float(np.mean(ca + sa + np.abs(tr["beta"]) * (cb + sb)))
             edge_bp = float(tr["pnl"].mean() * 1e4) if len(tr["pnl"]) else float("nan")
             half = (
                 [_tstat(tr["pnl"][tr["entry"] <= np.median(tr["entry"])]),
@@ -201,8 +205,11 @@ def run_pair_sweep(pairs: list[PairData], n_worlds: int, seed: int = config.SEED
                 "avg_beta": float(np.mean(np.abs(tr["beta"]))) if len(tr["beta"]) else float("nan"),
                 "avg_hold_bars": float(np.mean(tr["exit"] - tr["entry"])) if len(tr["pnl"]) else float("nan"),
                 "cost_bp": cost_bp,
+                "cost_total_bp": cost_total,
                 "break_even_spread_bp": None if (cost_bp is None or not np.isfinite(edge_bp))
                 else abs(edge_bp) - cost_bp,
+                "net_bp_tape": None if (cost_total is None or not np.isfinite(edge_bp))
+                else abs(edge_bp) - cost_total,
                 "t_first_half": half[0],
                 "t_second_half": half[1],
             }
@@ -282,9 +289,11 @@ def main() -> None:
                 "edge_bp": None if not np.isfinite(row["edge_bp"]) else round(row["edge_bp"], 5),
                 "t": None if not np.isfinite(row["t"]) else round(row["t"], 3),
                 "break_even_spread_bp": None if row["break_even_spread_bp"] is None else round(row["break_even_spread_bp"], 5),
+                "net_bp_tape": None if row["net_bp_tape"] is None else round(row["net_bp_tape"], 5),
                 "own_null_percentile": round(row["own_null_percentile"], 4),
             },
-            {"null": {"mean_block": 1.0, "worlds": args.worlds, "joint_pair": True}, "spread_bp": 0.0},
+            {"null": {"mean_block": 1.0, "worlds": args.worlds, "joint_pair": True},
+             "spread": "adopted per symbol (tape 2026-10-05)"},
         )
 
     with args.out.open("w", encoding="utf-8") as f:
@@ -299,14 +308,15 @@ def main() -> None:
           f" -> percentile {100 * result['family']['percentile']:.1f}%\n")
 
     hdr = (f"{'pair':>15} {'z0':>4} {'zx':>4} {'n':>5} {'edge bp':>8} {'t':>7} {'avg|b|':>7}"
-           f" {'hold':>5} {'BE spr':>8} {'t1':>6} {'t2':>6} {'own%':>6}")
+           f" {'hold':>5} {'BE spr':>7} {'net@tape':>9} {'t1':>6} {'t2':>6} {'own%':>6}")
     print(hdr)
     print("-" * len(hdr))
     for row in result["candidates"]:
         be = "n/a" if row["break_even_spread_bp"] is None else f"{row['break_even_spread_bp']:.3f}"
+        net = "n/a" if row["net_bp_tape"] is None else f"{row['net_bp_tape']:.3f}"
         print(f"{row['pair']:>15} {row['z_entry']:>4.1f} {row['z_exit']:>4.1f} {row['n_trades']:>5}"
               f" {row['edge_bp']:>8.3f} {row['t']:>7.2f} {row['avg_beta']:>7.2f} {row['avg_hold_bars']:>5.0f}"
-              f" {be:>8} {row['t_first_half']:>6.2f} {row['t_second_half']:>6.2f} {row['own_null_percentile']:>6.3f}")
+              f" {be:>7} {net:>9} {row['t_first_half']:>6.2f} {row['t_second_half']:>6.2f} {row['own_null_percentile']:>6.3f}")
 
     print("\nper-pair panel:")
     for p in pairs:
