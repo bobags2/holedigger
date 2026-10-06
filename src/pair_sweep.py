@@ -229,7 +229,7 @@ def run_pair_sweep(pairs: list[PairData], n_worlds: int, seed: int = config.SEED
                 null[w, col] = _tstat(tr["pnl"])
                 col += 1
     abs_null = np.abs(null)
-    null_max = abs_null.max(axis=1)
+    null_max = np.nanmax(abs_null, axis=1)
 
     keys = [(p.name, z0, zx) for p in pairs for (z0, zx) in combos]
     for j, key in enumerate(keys):

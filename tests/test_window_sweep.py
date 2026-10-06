@@ -71,6 +71,31 @@ def test_cost_units() -> None:
     assert be is not None and abs(be - 0.557) < 0.002, be
 
 
+def make_session_bounded(name, n_days=300, seed=9, start_hour=12, end_hour=18):
+    rng = np.random.default_rng(seed)
+    bars = (end_hour - start_hour) * 12
+    r = rng.standard_normal(n_days * bars) * 2e-4
+    base = np.datetime64("2000-01-03T00:00:00")
+    offsets = (
+        np.arange(n_days)[:, None] * 1440 + start_hour * 60 + np.arange(bars)[None, :] * 5
+    ).astype("timedelta64[m]")
+    times = pd.DatetimeIndex(base + offsets.ravel())
+    closes = 100 * np.exp(np.cumsum(r))
+    return series_from_bars(name, times, closes)
+
+
+def test_session_bounded_symbol_calibrates() -> None:
+    """Session-bounded symbols leave all-NaN candidates; the family must stay calibrated."""
+    series = make_synthetic(["AAA"], n_days=300, seed=7)
+    series["BBB"] = make_session_bounded("BBB")
+    res = run_sweep(series, default_windows(), n_worlds=30, seed=8)
+    assert np.isfinite(res["family"]["real_max_abs_t"]), res["family"]
+    assert 0.0 <= res["family"]["percentile"] <= 1.0, res["family"]
+    assert np.isfinite(res["null"]["family_max_mean"]), res["null"]
+    assert any(not np.isfinite(c["t"]) for c in res["candidates"]), "expected NaN candidates"
+    assert np.isfinite(res["candidates"][0]["t"]), "NaN candidate sorted first"
+
+
 def main() -> None:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

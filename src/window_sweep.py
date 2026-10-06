@@ -142,11 +142,14 @@ def run_sweep(
 
     abs_null = np.abs(null_t)
     abs_real = np.abs(t_real)
-    null_max = abs_null.max(axis=1)
-    real_max = float(abs_real.max())
+    # Session-bounded symbols leave all-NaN candidates (windows outside their session);
+    # they must not poison the family maximum or the percentiles.
+    null_max = np.nanmax(abs_null, axis=1)
+    real_max = float(np.nanmax(abs_real))
     percentile = float((null_max < real_max).mean())
     z = float((real_max - null_max.mean()) / null_max.std(ddof=1)) if n_worlds > 1 else float("nan")
     per_candidate_pct = (abs_null < abs_real[None, :]).mean(axis=0)
+    per_candidate_pct[~np.isfinite(abs_real)] = np.nan
 
     # Half-sample split (by day) for the top candidates later
     half_t, half_edge = {}, {}
@@ -187,7 +190,7 @@ def run_sweep(
                 "t_second_half": float(half_t[(sym, 1)][windows.index((h, d))]),
             }
         )
-    rows.sort(key=lambda r: -abs(r["t"]))
+    rows.sort(key=lambda r: -abs(r["t"]) if np.isfinite(r["t"]) else 1.0)
 
     replication = {}
     for row in rows[:3]:

@@ -100,7 +100,7 @@ def run_pooled(
         null[i] = _all_windows(Sstar, a, b, valid, signs, windows)
 
     abs_null = np.abs(null)
-    null_max = abs_null.max(axis=1)
+    null_max = np.nanmax(abs_null, axis=1)
     real_max = float(np.abs(real).max())
     family_percentile = float((null_max < real_max).mean())
 
