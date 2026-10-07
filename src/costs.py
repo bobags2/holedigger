@@ -29,14 +29,16 @@ PER_SIDE = True
 # Only needed for symbols with non-zero commission.
 LOT_UNITS = {"XAUUSD": 100.0, "XAGUSD": 5000.0, "EURUSD": 100_000.0, "GBPUSD": 100_000.0}
 
-# Measured from the live tape (ctbridge.tape, 2026-10-05 16:21–17:21 UTC; medians;
-# full distribution in artifacts/tape_summary.json). A round trip pays the spread once.
+# Measured from live tapes (ctbridge.tape; medians; full distribution in
+# artifacts/tape_summary.json). A round trip pays the spread once.
 LIVE_SPREAD_OBSERVATION = {
-    "observed_utc": "2026-10-05T16:21/17:21",
+    "observed_utc": ["2026-10-05T16:21/17:21 (majors)", "2026-10-06T15:53/16:53 (expanded universe)"],
     "broker": "Fusion Markets",
-    "source": "tape_20261005_162141.csv (44,369 quotes)",
-    "note": "EURUSD/GBPUSD 99.7% zero-spread; XAUUSD 0.19 bp; indices 0.26-0.39 bp; "
-            "silver 3.28, oil 3.23, USDX 1.86 bp",
+    "source": "tape_20261005_162141.csv; tape_20261006_155337.csv",
+    "note": "Majors: EURUSD/GBPUSD 99.7% zero-spread, XAUUSD 0.19bp, indices 0.26-0.39bp. "
+            "Expanded (London hours): copper 2.50, Brent 2.89, aluminium 7.01, zinc 7.22, "
+            "coffee ~7.9, soybean 5.81, wheat 8.06, sugar 9.46, cocoa 11-19, nickel 11.45, "
+            "lead 13.09, natgas 23.36, platinum 35.24, palladium 59.42 bp.",
 }
 ADOPTED_SPREAD_BP = {
     "EURUSD": 0.000,
@@ -47,6 +49,27 @@ ADOPTED_SPREAD_BP = {
     "US500": 0.386,
     "NAS100": 0.258,
     "USDX": 1.858,
+    # Expanded universe (tape 2026-10-06, London hours).
+    "COFARA": 7.878,
+    "COFROB": 7.859,
+    "CORN": 11.158,
+    "COTTON": 11.230,
+    "OJ": 20.190,
+    "SOYBEAN": 5.810,
+    "SUGAR": 9.460,
+    "SUGARRAW": 15.004,
+    "UKCOCOA": 19.142,
+    "USCOCOA": 11.474,
+    "WHEAT": 8.055,
+    "XALUSD": 7.010,
+    "XBRUSD": 2.889,
+    "XCUUSD": 2.495,
+    "XNGUSD": 23.361,
+    "XNIUSD": 11.450,
+    "XPBUSD": 13.087,
+    "XPDUSD": 59.418,
+    "XPTUSD": 35.235,
+    "XZNUSD": 7.216,
 }
 
 

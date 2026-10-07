@@ -1,128 +1,307 @@
 {
   "hourly_median_spread_bp": {
-    "EURUSD": {
-      "16": 0.0,
-      "17": 0.0
+    "COFARA": {
+      "15": 7.8808,
+      "16": 7.8784
     },
-    "GBPUSD": {
-      "16": 0.0,
-      "17": 0.0
+    "COFROB": {
+      "15": 6.9542,
+      "16": 7.8616
     },
-    "NAS100": {
-      "16": 0.2579,
-      "17": 0.2579
+    "CORN": {
+      "15": 11.2209,
+      "16": 11.1583
     },
-    "US500": {
-      "16": 0.3861,
-      "17": 0.3861
+    "COTTON": {
+      "15": 11.257,
+      "16": 11.2282
     },
-    "USDX": {
-      "16": 1.8583,
-      "17": 1.8579
+    "OJ": {
+      "15": 16.8674,
+      "16": 20.1966
     },
-    "XAGUSD": {
-      "16": 3.2795,
-      "17": 3.6082
+    "SOYBEAN": {
+      "15": 5.8235,
+      "16": 5.8088
     },
-    "XAUUSD": {
-      "16": 0.1696,
-      "17": 0.2421
+    "SUGAR": {
+      "15": 9.465,
+      "16": 9.4583
     },
-    "XTIUSD": {
-      "16": 3.2346,
-      "17": 2.1638
+    "SUGARRAW": {
+      "15": 15.0113,
+      "16": 15.0038
+    },
+    "UKCOCOA": {
+      "15": 19.1415
+    },
+    "USCOCOA": {
+      "15": 12.1225,
+      "16": 10.9398
+    },
+    "WHEAT": {
+      "15": 8.0759,
+      "16": 8.0494
+    },
+    "XALUSD": {
+      "15": 7.012,
+      "16": 7.0077
+    },
+    "XBRUSD": {
+      "15": 2.9128,
+      "16": 2.889
+    },
+    "XCUUSD": {
+      "15": 2.4949,
+      "16": 2.4954
+    },
+    "XNGUSD": {
+      "15": 23.4231,
+      "16": 23.3528
+    },
+    "XNIUSD": {
+      "15": 11.4503,
+      "16": 11.4496
+    },
+    "XPBUSD": {
+      "15": 13.0909,
+      "16": 13.0818
+    },
+    "XPDUSD": {
+      "15": 60.7841,
+      "16": 59.3715
+    },
+    "XPTUSD": {
+      "15": 23.594,
+      "16": 35.9945
+    },
+    "XZNUSD": {
+      "15": 7.2232,
+      "16": 7.2128
     }
   },
   "per_symbol": {
-    "EURUSD": {
+    "COFARA": {
       "crossed_share": 0.0,
-      "events": 2780,
-      "first": "2026-10-05T16:21:43.794Z",
-      "last": "2026-10-05T17:21:41.367Z",
-      "median_spread_bp": 0.0,
+      "events": 2076,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T16:53:35.304Z",
+      "median_spread_bp": 7.878358,
       "missing_side_share": 0.0,
-      "p90_spread_bp": 0.0,
-      "p99_spread_bp": 0.0,
-      "zero_share": 0.9974820143884892
-    },
-    "GBPUSD": {
-      "crossed_share": 0.0,
-      "events": 3443,
-      "first": "2026-10-05T16:21:43.795Z",
-      "last": "2026-10-05T17:21:41.582Z",
-      "median_spread_bp": 0.0,
-      "missing_side_share": 0.0,
-      "p90_spread_bp": 0.0,
-      "p99_spread_bp": 0.0,
-      "zero_share": 0.9973860005808888
-    },
-    "NAS100": {
-      "crossed_share": 0.0,
-      "events": 13909,
-      "first": "2026-10-05T16:21:43.795Z",
-      "last": "2026-10-05T17:21:42.838Z",
-      "median_spread_bp": 0.257903,
-      "missing_side_share": 0.0,
-      "p90_spread_bp": 0.258032,
-      "p99_spread_bp": 0.258243,
+      "p90_spread_bp": 9.468203,
+      "p99_spread_bp": 9.552619,
       "zero_share": 0.0
     },
-    "US500": {
+    "COFROB": {
       "crossed_share": 0.0,
-      "events": 1456,
-      "first": "2026-10-05T16:21:43.795Z",
-      "last": "2026-10-05T17:21:40.689Z",
-      "median_spread_bp": 0.386118,
+      "events": 2180,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T16:29:59.028Z",
+      "median_spread_bp": 7.859419,
       "missing_side_share": 0.0,
-      "p90_spread_bp": 0.386392,
-      "p99_spread_bp": 0.38665885,
+      "p90_spread_bp": 8.8566237,
+      "p99_spread_bp": 10.698488,
       "zero_share": 0.0
     },
-    "USDX": {
+    "CORN": {
       "crossed_share": 0.0,
-      "events": 1147,
-      "first": "2026-10-05T16:21:43.795Z",
-      "last": "2026-10-05T17:21:39.442Z",
-      "median_spread_bp": 1.858254,
+      "events": 112,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T16:52:31.915Z",
+      "median_spread_bp": 11.158337,
       "missing_side_share": 0.0,
-      "p90_spread_bp": 2.347096,
-      "p99_spread_bp": 2.347441,
+      "p90_spread_bp": 13.760733900000002,
+      "p99_spread_bp": 16.240853079999997,
       "zero_share": 0.0
     },
-    "XAGUSD": {
+    "COTTON": {
       "crossed_share": 0.0,
-      "events": 5763,
-      "first": "2026-10-05T16:21:43.795Z",
-      "last": "2026-10-05T17:21:42.767Z",
-      "median_spread_bp": 3.28224,
+      "events": 973,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T16:53:39.765Z",
+      "median_spread_bp": 11.229646,
       "missing_side_share": 0.0,
-      "p90_spread_bp": 3.773368,
-      "p99_spread_bp": 3.942311,
+      "p90_spread_bp": 12.495314,
+      "p99_spread_bp": 13.7265622,
       "zero_share": 0.0
     },
-    "XAUUSD": {
+    "OJ": {
       "crossed_share": 0.0,
-      "events": 11340,
-      "first": "2026-10-05T16:21:43.795Z",
-      "last": "2026-10-05T17:21:43.645Z",
-      "median_spread_bp": 0.193818,
+      "events": 246,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T16:52:34.795Z",
+      "median_spread_bp": 20.189784,
       "missing_side_share": 0.0,
-      "p90_spread_bp": 0.2662831,
-      "p99_spread_bp": 0.31496098,
+      "p90_spread_bp": 27.0453285,
+      "p99_spread_bp": 35.10342530000004,
       "zero_share": 0.0
     },
-    "XTIUSD": {
+    "SOYBEAN": {
       "crossed_share": 0.0,
-      "events": 4531,
-      "first": "2026-10-05T16:21:43.795Z",
-      "last": "2026-10-05T17:21:42.713Z",
-      "median_spread_bp": 3.233212,
+      "events": 459,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T16:52:17.196Z",
+      "median_spread_bp": 5.809923,
       "missing_side_share": 0.0,
-      "p90_spread_bp": 3.242998,
-      "p99_spread_bp": 3.246507,
+      "p90_spread_bp": 7.7503166000000006,
+      "p99_spread_bp": 7.763855,
+      "zero_share": 0.0
+    },
+    "SUGAR": {
+      "crossed_share": 0.0,
+      "events": 757,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T16:53:39.692Z",
+      "median_spread_bp": 9.459978,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 9.478758,
+      "p99_spread_bp": 9.495263999999999,
+      "zero_share": 0.0
+    },
+    "SUGARRAW": {
+      "crossed_share": 0.0,
+      "events": 260,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T16:53:39.311Z",
+      "median_spread_bp": 15.003751,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 20.0,
+      "p99_spread_bp": 20.060181,
+      "zero_share": 0.0
+    },
+    "UKCOCOA": {
+      "crossed_share": 0.0,
+      "events": 32,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T15:54:56.295Z",
+      "median_spread_bp": 19.14147,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 19.150521,
+      "p99_spread_bp": 19.15434716,
+      "zero_share": 0.0
+    },
+    "USCOCOA": {
+      "crossed_share": 0.0,
+      "events": 1584,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T16:53:04.021Z",
+      "median_spread_bp": 11.4740135,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 13.918946700000001,
+      "p99_spread_bp": 18.13977338000004,
+      "zero_share": 0.0
+    },
+    "WHEAT": {
+      "crossed_share": 0.0,
+      "events": 503,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T16:53:33.198Z",
+      "median_spread_bp": 8.055244,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 11.684632,
+      "p99_spread_bp": 11.736056,
+      "zero_share": 0.0
+    },
+    "XALUSD": {
+      "crossed_share": 0.0,
+      "events": 813,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T16:53:25.172Z",
+      "median_spread_bp": 7.009495,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 7.648427,
+      "p99_spread_bp": 8.259483079999999,
+      "zero_share": 0.0
+    },
+    "XBRUSD": {
+      "crossed_share": 0.0,
+      "events": 4155,
+      "first": "2026-10-06T15:53:40.100Z",
+      "last": "2026-10-06T16:53:39.726Z",
+      "median_spread_bp": 2.889283,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 2.908611,
+      "p99_spread_bp": 3.86389804,
+      "zero_share": 0.0
+    },
+    "XCUUSD": {
+      "crossed_share": 0.0,
+      "events": 4110,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T16:53:37.609Z",
+      "median_spread_bp": 2.495365,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 2.669204,
+      "p99_spread_bp": 3.05135858,
+      "zero_share": 0.0
+    },
+    "XNGUSD": {
+      "crossed_share": 0.0,
+      "events": 641,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T16:53:21.054Z",
+      "median_spread_bp": 23.360587,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 26.69336,
+      "p99_spread_bp": 26.764804,
+      "zero_share": 0.0
+    },
+    "XNIUSD": {
+      "crossed_share": 0.0,
+      "events": 213,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T16:53:19.331Z",
+      "median_spread_bp": 11.449724,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 12.8831986,
+      "p99_spread_bp": 14.44671724,
+      "zero_share": 0.0
+    },
+    "XPBUSD": {
+      "crossed_share": 0.0,
+      "events": 366,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T16:51:00.895Z",
+      "median_spread_bp": 13.087432,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 14.420381,
+      "p99_spread_bp": 15.48880565,
+      "zero_share": 0.0
+    },
+    "XPDUSD": {
+      "crossed_share": 0.0,
+      "events": 5271,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T16:53:39.181Z",
+      "median_spread_bp": 59.417807,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 66.936973,
+      "p99_spread_bp": 75.0765432,
+      "zero_share": 0.0
+    },
+    "XPTUSD": {
+      "crossed_share": 0.0,
+      "events": 7572,
+      "first": "2026-10-06T15:53:40.030Z",
+      "last": "2026-10-06T16:53:39.935Z",
+      "median_spread_bp": 35.2350155,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 43.4049926,
+      "p99_spread_bp": 45.53002472,
+      "zero_share": 0.0
+    },
+    "XZNUSD": {
+      "crossed_share": 0.0,
+      "events": 919,
+      "first": "2026-10-06T15:53:40.031Z",
+      "last": "2026-10-06T16:53:34.855Z",
+      "median_spread_bp": 7.215715,
+      "missing_side_share": 0.0,
+      "p90_spread_bp": 7.874381,
+      "p99_spread_bp": 8.491667919999985,
       "zero_share": 0.0
     }
   },
-  "rows": 44369,
-  "tape": "Z:\\projects\\ctrader\\tape\\tape_20261005_162141.csv"
+  "rows": 33242,
+  "tape": "Z:\\projects\\ctrader\\tape\\tape_20261006_155337.csv"
 }

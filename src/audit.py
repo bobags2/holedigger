@@ -170,8 +170,15 @@ def main() -> None:
             json.dump(report, f, indent=2, sort_keys=True)
 
     out = config.ARTIFACTS_DIR / "audit_report.json"
+    existing = []
+    if out.exists():
+        with out.open("r", encoding="utf-8") as f:
+            existing = json.load(f)
+    by_symbol = {r["symbol"]: r for r in existing}
+    for report in reports:
+        by_symbol[report["symbol"]] = report
     with out.open("w", encoding="utf-8") as f:
-        json.dump(reports, f, indent=2, sort_keys=True)
+        json.dump([by_symbol[s] for s in sorted(by_symbol)], f, indent=2, sort_keys=True)
 
     summary = pd.DataFrame(
         [

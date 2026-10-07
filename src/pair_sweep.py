@@ -257,6 +257,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--worlds", type=int, default=200)
     ap.add_argument("--pairs", default=None, help="comma-separated A/B list (default: the built-in six)")
+    ap.add_argument("--family", default="pair_reversion_v1", help="registry family label for this pre-registered set")
     ap.add_argument("--out", type=Path, default=config.ARTIFACTS_DIR / "pair_sweep.json")
     args = ap.parse_args()
 
@@ -269,7 +270,7 @@ def main() -> None:
         for z0 in Z_ENTRY:
             for zx in Z_EXIT:
                 reg.register(
-                    {"family": "pair_reversion_v1", "pair": [p.a, p.b], "z_entry": z0, "z_exit": zx},
+                    {"family": args.family, "pair": [p.a, p.b], "z_entry": z0, "z_exit": zx},
                     generator="pair_sweep",
                     generator_version="1",
                 )
@@ -278,7 +279,7 @@ def main() -> None:
     for row in result["candidates"]:
         a, b = row["pair"].split("/")
         hid = reg.register(
-            {"family": "pair_reversion_v1", "pair": [a, b], "z_entry": row["z_entry"], "z_exit": row["z_exit"]},
+            {"family": args.family, "pair": [a, b], "z_entry": row["z_entry"], "z_exit": row["z_exit"]},
             generator="pair_sweep",
             generator_version="1",
         )

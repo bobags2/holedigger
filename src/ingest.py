@@ -129,8 +129,15 @@ def main() -> None:
 
     name = f"manifest{('_' + args.tag) if args.tag else ''}.json"
     out = config.DATA_DIR / name
+    existing = []
+    if out.exists():
+        with out.open("r", encoding="utf-8") as f:
+            existing = json.load(f)
+    by_symbol = {e["symbol"]: e for e in existing}
+    for entry in entries:
+        by_symbol[entry["symbol"]] = entry
     with out.open("w", encoding="utf-8") as f:
-        json.dump(entries, f, indent=2, sort_keys=True)
+        json.dump([by_symbol[s] for s in sorted(by_symbol)], f, indent=2, sort_keys=True)
 
     table = pd.DataFrame(
         [
