@@ -183,6 +183,28 @@ dislocations are large (+23 bp/trade) and hopelessly noisy (n = 76, t = 0.6, avg
 Most trades run to the timeout instead of reverting to the exit level — at this timescale,
 dislocations persist. Results: `artifacts/pair_sweep.json`.
 
+### 8. Expanded universe (28 symbols): first family above its null
+
+28 instruments (8 original + 11 softs + 9 energy/metals), 1,932 candidates, 200 worlds:
+family max |t| = **6.80 vs null p95 3.99** (z = 10.8) — the first family in the project to
+beat its own null. Two instruments drove it:
+
+- **XPBUSD (lead)**: a smooth London-morning ramp, entirely inside 06:00–08:00 UTC
+  (06→08 = +8.33 bp, t = 6.80; exact decomposition 04→08 = 04→06 + 06→08; halves +4.2/+5.9;
+  every year positive). Measured spread **13.05–13.09 bp** (taped at 16:00 UTC; live check at
+  06:00 UTC inside the ramp: 13.05) and the feed ticks ~1/minute. Net = **−4.7 bp/trade.
+  Dead on cost**, in both directions, at the actual trading hours.
+- **XCUUSD (copper)**: an early-Asia fade localized to 03:00→05:00 UTC: short = **+4.46 bp/
+  trade**, t = −6.51, ~1 trade/day, halves −5.8/−3.3, every year negative. Measured spread
+  **2.50 bp in two sessions** (15:53–16:53 UTC and 06:45 UTC; p90 2.67). Net ≈ **+2.0 bp/trade**
+  (~+5%/yr on notional), no rollover crossing. **First candidate to pass both the null and the
+  measured cost gate**; registered as `forward_test_v1` (remaining gates: spread sample at
+  03:00–05:00 UTC; demo execution/fill check).
+
+Also measured: the expanded universe's cost wall — copper 2.5 and Brent 2.9 bp are the cheap
+instruments; softs 6–20 bp; natgas 23, platinum 35, palladium 59 bp. Edges must be that large
+to survive there.
+
 ## Layout
 
 ```
