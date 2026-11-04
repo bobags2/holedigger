@@ -323,7 +323,8 @@ def main() -> None:
                 "net_spread_edge_bp": None if row["net_spread_edge_bp"] is None else round(row["net_spread_edge_bp"], 5),
                 "net_spread_t": None if row["net_spread_t"] is None else round(row["net_spread_t"], 3),
             },
-            {"null": {"mean_block": 1.0, "worlds": args.worlds}, "spread": "adopted per symbol (tape 2026-10-05)"},
+            {"null": {"mean_block": 1.0, "worlds": args.worlds}, "source": args.source,
+             "spread": "adopted per symbol (tape 2026-10-05)"},
         )
 
     with args.out.open("w", encoding="utf-8") as f:

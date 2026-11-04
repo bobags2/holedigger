@@ -4,10 +4,11 @@ Search market data for exploitable structure — dislocations, forced-flow finge
 microstructure holes — instead of forecasting prices, with the multiple-testing problem
 treated as the central engineering constraint rather than a footnote.
 
-**Status: data audit + parquet layer + null factory + selection-bias floor + broker cost model
-(Fusion Markets, 8/8 symbols) + measured spreads from the live tape (0.26–3.52 bp round trips;
-per-hour distributions) + three registered families (645 hypotheses — empty, correctly). No
-live-money candidates yet.**
+**Status: two sources live. cTrader mid bars (28 instruments, audited and ingested) + MT5
+tick data (10 instruments, 350 days each, ~430M ticks → mid bars with per-bar spreads).
+Six registered families, ~2,300 hypotheses, **zero survivors** — including the two live
+candidates the MT5 spread data killed at their actual trading hours (copper −4.8 bp/trade,
+lead −15 to −26 bp/trade). No live-money candidates yet.**
 
 ## Why the framing
 
@@ -309,6 +310,37 @@ on live ticks: EURUSD bid==ask on 99.8% of ticks (0.00 bp), XAUUSD ~0.17 bp stab
 all hours — so the majors' cost is essentially commission-only, while the exotics'
 spreads (copper 2.5, silver 5.0, oil 3.1, palladium 59 bp) are now measured historically
 instead of taped once.
+
+### 9. MT5 re-run: same experiments, tick-derived data
+
+Ten instruments (350 days each; NAS100 59), 690 candidates, 200 permutation worlds
+(`--source mt5`). Family max |t| = **3.82 vs null p95 3.87** (94.0th percentile, z = 1.77):
+no survivor. The candidate that carried the top of the family is the same one on both runs —
+EURUSD 00:00–01:00 *terminal* (21:00–22:00 UTC, the rollover hour), gross +0.87 bp, t = 3.82,
+n = 248, halves +4.21/+1.24 — and it clears on the six-symbol family (p95 3.66) but not on the
+ten-symbol one (p95 3.87). Adding instruments raised the floor past the candidate, which is
+the multiplicity discipline working exactly as designed. Its measured cost at that window:
+spread 0.54 bp + commission 0.44 bp → **net −0.12 bp. Dead** on cost as well.
+
+The two cost questions left open by the cTrader universe are now answered with 350 days of
+tick history, and both go the wrong way:
+
+- **Copper fade** (terminal 06–08h = UTC 03–05h): gross short edge 2.6 bp vs per-trade
+  spread cost **7.4 bp** → net **−4.8 bp/trade**. Copper's spread is 5.0 bp in Asia hours
+  against 2.7 bp in London — the edge sits exactly where the spread is widest.
+- **Lead ramp** (terminal 09–11h = UTC 06–08h): gross edge ±2 bp vs per-trade spread cost
+  **17–28 bp** → net **−15 to −26 bp/trade**.
+
+Two generalizable findings. First, on this broker the thin-session hours are both where
+session-window edges concentrate *and* where spreads are widest, so per-trade costing is
+not a refinement, it is the whole question. Second, the lead ramp — the project's strongest
+signal at t = 6.8 on six years of cTrader bars — does not replicate on ten months of MT5
+mid ticks (opposite sign, t ≈ −1). Basis or regime, unresolved; uninvestable either way at
+those spreads. Cost-clearing candidates do exist (XAUUSD 13+2h nets +5.2 bp of spread *and*
+commission, XTIUSD 17+2h +16.5 bp, EURUSD 18+1h +1.0 bp) but all sit below the family null
+(gross t = 1.4–2.6 vs p95 3.87), which is the correct verdict — and which is the argument
+for mechanism-first families: at N = 1 the two-sided bar is ~2.0, so a pre-registered single
+hypothesis on a candidate like these would be decidable; at N = 690 it is not.
 
 ## Design rules this repo encodes
 
