@@ -42,22 +42,30 @@ class Series:
     bar_time: np.ndarray  # int64 ns, per bar
     bar_day: np.ndarray  # int64 days-since-epoch, per bar
     price: float  # last close
+    spread_bp: np.ndarray | None = None  # per-bar spread in bp; None for mid-only sources
 
 
-def series_from_bars(symbol: str, times, closes) -> Series:
+def series_from_bars(symbol: str, times, closes, spread_bp=None) -> Series:
     t = pd.DatetimeIndex(times)
     close = np.asarray(closes, dtype=float)
     r = np.empty(len(close), dtype=float)
     r[0] = 0.0
     r[1:] = np.diff(np.log(close))
     ns = t.to_numpy().astype("datetime64[ns]").astype("int64")
-    return Series(symbol, r, ns, ns // (86_400 * 10**9), float(close[-1]))
+    spread = None if spread_bp is None else np.asarray(spread_bp, dtype=float)
+    return Series(symbol, r, ns, ns // (86_400 * 10**9), float(close[-1]), spread)
 
 
 def build_series(symbol: str) -> Series:
     df = pd.read_parquet(config.PARQUET_DIR / f"{symbol}_M1.parquet").set_index("ts")
     m5 = df.resample("5min").last().dropna()
     return series_from_bars(symbol, m5.index, m5["close"].to_numpy())
+
+
+def build_mt5_series(symbol: str) -> Series:
+    """M1 mid bars from MT5 ticks, carrying per-bar spread for per-trade costing."""
+    df = pd.read_parquet(config.PARQUET_DIR / f"{symbol}_MT5_M1.parquet")
+    return series_from_bars(symbol, df["ts"], df["close"].to_numpy(), df["spread_med_bp"].to_numpy())
 
 
 def default_windows(holds: list[int] = HOLDS, max_exit: int = MAX_EXIT_HOUR) -> list[tuple[int, int]]:
@@ -107,6 +115,16 @@ def window_stats(pnl: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return mean, t, n
 
 
+def _tstat_of(x: np.ndarray) -> float:
+    """t-stat of a per-trade P&L series; NaN for degenerate inputs."""
+    if len(x) < 5:
+        return float("nan")
+    sd = x.std(ddof=1)
+    if sd == 0.0:
+        return float("nan")
+    return float(x.mean() / (sd / np.sqrt(len(x))))
+
+
 def run_sweep(
     series: dict[str, Series],
     windows: list[tuple[int, int]],
@@ -122,6 +140,29 @@ def run_sweep(
     for sym, s in series.items():
         pnl = pnl_matrix(np.cumsum(s.r), *seg[sym])
         real_mean[sym], real_t[sym], real_n[sym] = window_stats(pnl)
+
+    # Per-trade spread costing: a trade crosses half a spread on each side, measured at
+    # the actual entry and exit bars. Only sources with a spread column (MT5 ticks) get it.
+    net_by_key: dict[tuple, dict] = {}
+    for sym, s in series.items():
+        if s.spread_bp is None:
+            continue
+        a, b, valid = seg[sym]
+        S = np.cumsum(s.r)
+        for wi, (h, d) in enumerate(windows):
+            m = valid[:, wi]
+            e, x = a[m, wi], b[m, wi]
+            if not len(e):
+                continue
+            gross = (S[x] - S[e]) * 1e4
+            cost = (s.spread_bp[e] + s.spread_bp[x]) / 2.0
+            sgn = np.sign(gross.mean())  # trade the profitable direction
+            net = sgn * gross - cost
+            net_by_key[(sym, h, d)] = {
+                "net_edge_bp": float(net.mean()),
+                "net_t": _tstat_of(net),
+                "cost_bp": float(cost.mean()),
+            }
 
     null_t = np.empty((n_worlds, len(syms) * n_win))
     for w in range(n_worlds):
@@ -166,6 +207,7 @@ def run_sweep(
     for j in range(len(cand_sym)):
         sym = cand_sym[j]
         h, d = cand_win[j]
+        nb = net_by_key.get((sym, h, d))
         comm = costs.commission_round_trip_bp(sym, series[sym].price)
         spread = costs.ADOPTED_SPREAD_BP.get(sym, 0.0)
         gross = abs(edge_bp[j])  # the tradeable direction is sign(edge)
@@ -186,6 +228,9 @@ def run_sweep(
                 "break_even_spread_bp": be,
                 "net_bp_spread0": net,
                 "net_bp_tape": net_tape,
+                "net_spread_edge_bp": None if nb is None else nb["net_edge_bp"],
+                "net_spread_t": None if nb is None else nb["net_t"],
+                "avg_half_spread_cost_bp": None if nb is None else nb["cost_bp"],
                 "t_first_half": float(half_t[(sym, 0)][windows.index((h, d))]),
                 "t_second_half": float(half_t[(sym, 1)][windows.index((h, d))]),
             }
@@ -232,12 +277,15 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--symbols", nargs="+", default=config.SYMBOLS)
     ap.add_argument("--worlds", type=int, default=200)
+    ap.add_argument("--source", choices=["ctrader", "mt5"], default="ctrader",
+                    help="ctrader mid parquet, or MT5 tick-derived parquet with per-bar spreads")
     ap.add_argument("--out", type=Path, default=config.ARTIFACTS_DIR / "window_sweep.json")
     args = ap.parse_args()
 
     config.ensure_dirs()
     windows = default_windows()
-    series = {sym: build_series(sym) for sym in args.symbols}
+    build = build_mt5_series if args.source == "mt5" else build_series
+    series = {sym: build(sym) for sym in args.symbols}
 
     # Register every candidate before anything is evaluated.
     reg = Registry(config.REGISTRY_PATH)
@@ -272,6 +320,8 @@ def main() -> None:
                 "break_even_spread_bp": None if row["break_even_spread_bp"] is None else round(row["break_even_spread_bp"], 5),
                 "net_bp_spread0": None if row["net_bp_spread0"] is None else round(row["net_bp_spread0"], 5),
                 "net_bp_tape": None if row["net_bp_tape"] is None else round(row["net_bp_tape"], 5),
+                "net_spread_edge_bp": None if row["net_spread_edge_bp"] is None else round(row["net_spread_edge_bp"], 5),
+                "net_spread_t": None if row["net_spread_t"] is None else round(row["net_spread_t"], 3),
             },
             {"null": {"mean_block": 1.0, "worlds": args.worlds}, "spread": "adopted per symbol (tape 2026-10-05)"},
         )
@@ -299,6 +349,14 @@ def main() -> None:
             f"{row['symbol']:>7} {win:>12} {row['edge_bp']:>9.4f} {row['t']:>7.2f} {row['n']:>6}"
             f" {row['own_null_percentile']:>6.3f} {be:>7} {net:>9} {row['t_first_half']:>6.2f} {row['t_second_half']:>6.2f}"
         )
+
+    netrows = [r for r in result["candidates"] if r["net_spread_edge_bp"] is not None]
+    if netrows:
+        print("\ntop candidates net of per-trade spread (half-spread each side, at the actual bars):")
+        for row in sorted(netrows, key=lambda r: -abs(r["net_spread_t"]))[:10]:
+            print(f"  {row['symbol']:>7} {row['entry_hour_utc']:02d}+{row['hold_hours']}h"
+                  f"  net={row['net_spread_edge_bp']:+.3f}bp  t={row['net_spread_t']:+6.2f}"
+                  f"  cost={row['avg_half_spread_cost_bp']:.3f}bp  gross_t={row['t']:+.2f}")
 
     print("\nreplication of top windows across symbols (t-stat):")
     for key, per_sym in result["replication"].items():
