@@ -34,6 +34,10 @@ CHUNK_HOURS = 4
 TICK_LIMIT = 100000
 CHUNK_DAYS = 7
 
+# Terminal-local is UTC+3, measured by the EURUSD cross-source shift scan against the
+# cTrader (UTC-labelled) parquet: return correlation peaks at a -3h shift. UTC = local - 3.
+MT5_TZ_OFFSET_HOURS = 3.0
+
 
 def _p90(s) -> float:
     """Percentile helper that survives the empty series pandas passes to lambdas."""
@@ -91,6 +95,9 @@ def mid_minute_bars(ticks: pd.DataFrame) -> pd.DataFrame:
                  tick_n=("mid", "size"), spread_med_bp=("sp", "median"), spread_mean_bp=("sp", "mean"),
                  spread_p90_bp=("sp", _p90))
     bars = bars.reset_index()
+    # Grouper emits a row per calendar minute: drop empty ones (no ticks in the minute)
+    # or they become NaN prices that poison every cumulative sum downstream.
+    bars = bars[bars["tick_n"] > 0].reset_index(drop=True)
     # spreads arrive in price units; normalise to bp of the bar's mid close
     px = bars["close"].to_numpy(dtype=float)
     for col in ("spread_med_bp", "spread_mean_bp", "spread_p90_bp"):
@@ -136,6 +143,7 @@ def ingest_chunk(mt5: Mt5, symbol: str, start: datetime, until: datetime,
     parquet = _parquet_path(symbol)
     if parquet.exists():
         have = pd.read_parquet(parquet)
+        have = have[have["tick_n"] > 0]  # legacy runs wrote empty-minute rows
         bars = pd.concat([have, bars], ignore_index=True).sort_values("ts").reset_index(drop=True)
     bars.to_parquet(parquet, index=False)
 
@@ -190,6 +198,7 @@ def main() -> None:
         "server": info.get("serverInfo"),
         "pulled_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "window_terminal_local": [start.strftime("%Y-%m-%dT%H:%M:%S"), end.strftime("%Y-%m-%dT%H:%M:%S")],
+        "tz_offset_hours": MT5_TZ_OFFSET_HOURS,
         "terminal_clock": clock,
         "run_seconds": round(time.time() - started, 1),
         "symbols": {sym: _load_state(sym, start, end) for sym in args.symbols},

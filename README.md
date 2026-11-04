@@ -278,6 +278,38 @@ cross-symbol replication evidence. Add commissions and lot sizes to `src/costs.p
 broker's figures are known; unknown costs fall back to gross break-even. Exotic CFDs often
 have much shorter M1 depth than majors — the audit's `uniform_start` will say how short.
 
+## MT5 data source (tick-level, real spreads)
+
+`src/mt5.py` is a dependency-free client for the MetaTrader 5 MCP server
+(`HOLEDIGGER_MT5_URL`, key in `HOLEDIGGER_MT5_KEY` — never commit it). It upgrades the
+data layer in three ways over the cTrader feed: **per-bar spread** (ask-bid at every
+minute), **true mid prices** (cTrader bars were broker-side), and **tick counts** as a
+liquidity measure. Same account/broker, same symbol universe.
+
+```
+python -m src.mt5_ingest --symbols EURUSD XAUUSD ... --days 350 --budget 250   # resumable
+python -m scripts.mt5_audit --symbols ... --hours 3 5 6                        # market quality
+python -m src.window_sweep --source mt5 --symbols ...                          # per-trade spread costing
+```
+
+The ingest is **day-chunked, state-resumable and budget-bounded**: it stops cleanly
+before a host timeout and continues on the next invocation (`data/mt5_state_<SYM>.json`
+holds progress, `data/mt5_manifest.json` the terminal clock). Tick responses are split
+adaptively so a 100k-row limit never silently truncates — NAS100 alone is ~460k ticks/day.
+
+Clock: terminal-local timestamps are **UTC+3** (measured by cross-source shift scan against
+the cTrader UTC-labelled parquet: correlation peaks at -3h). MT5 hour 06:00 = UTC 03:00 —
+which is exactly the copper fade window, so the sweep's hour labels carry over with that
+offset in mind. Cross-source agreement was validated: 63% identical 5-min closes, 4 bp rms
+difference (same price stream, different tick aggregation; no systematic bid/mid offset).
+
+Spread costing (`--source mt5`) prices each trade with the spread *at its own entry and
+exit bars* (half a spread each side), instead of a per-symbol session median. Confirmed
+on live ticks: EURUSD bid==ask on 99.8% of ticks (0.00 bp), XAUUSD ~0.17 bp stable across
+all hours — so the majors' cost is essentially commission-only, while the exotics'
+spreads (copper 2.5, silver 5.0, oil 3.1, palladium 59 bp) are now measured historically
+instead of taped once.
+
 ## Design rules this repo encodes
 
 1. **Audit before modelling.** Anything derived (features, labels, regimes) inherits
