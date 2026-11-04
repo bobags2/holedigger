@@ -276,6 +276,8 @@ def run_sweep(
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--symbols", nargs="+", default=config.SYMBOLS)
+    ap.add_argument("--mt5-done", action="store_true",
+                    help="run on every symbol whose MT5 ingest state is complete")
     ap.add_argument("--worlds", type=int, default=200)
     ap.add_argument("--source", choices=["ctrader", "mt5"], default="ctrader",
                     help="ctrader mid parquet, or MT5 tick-derived parquet with per-bar spreads")
@@ -283,6 +285,16 @@ def main() -> None:
     args = ap.parse_args()
 
     config.ensure_dirs()
+    if args.mt5_done:
+        done = []
+        for p in sorted(config.DATA_DIR.glob("mt5_state_*.json")):
+            state = json.loads(p.read_text(encoding="utf-8"))
+            if state.get("done"):
+                done.append(state["symbol"])
+        if not done:
+            raise SystemExit("no completed MT5 symbols; run src.mt5_ingest first")
+        args.symbols = done
+        print(f"running on {len(done)} completed MT5 symbols")
     windows = default_windows()
     build = build_mt5_series if args.source == "mt5" else build_series
     series = {sym: build(sym) for sym in args.symbols}

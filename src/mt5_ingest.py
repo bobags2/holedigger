@@ -117,8 +117,15 @@ def _parquet_path(symbol: str) -> Path:
 def _load_state(symbol: str, default_from: datetime, until: datetime) -> dict:
     p = _state_path(symbol)
     if p.exists():
-        return json.loads(p.read_text(encoding="utf-8"))
-    return {"symbol": symbol, "next_from": default_from.isoformat(), "until": until.isoformat(),
+        state = json.loads(p.read_text(encoding="utf-8"))
+        # an extended window invalidates earlier coverage: drop it and start over
+        if state.get("start") and default_from.isoformat() < state["start"]:
+            p.unlink(missing_ok=True)
+            _parquet_path(symbol).unlink(missing_ok=True)
+        else:
+            return state
+    return {"symbol": symbol, "start": default_from.isoformat(),
+            "next_from": default_from.isoformat(), "until": until.isoformat(),
             "done": False, "ticks": 0, "chunks": 0}
 
 
@@ -144,11 +151,23 @@ def ingest_chunk(mt5: Mt5, symbol: str, start: datetime, until: datetime,
     # window grid uses the same clock, and equity sessions land inside the 00-20h grid.
     bars["ts"] = bars["ts"] - pd.Timedelta(hours=MT5_TZ_OFFSET_HOURS)
     parquet = _parquet_path(symbol)
+    state.update({
+        "next_from": chunk_end.isoformat(),
+        "done": chunk_end >= until,
+        "ticks": int(state["ticks"] + len(ticks)),
+        "chunks": int(state["chunks"] + 1),
+    })
+    if not len(bars):
+        # no ticks in the window (holiday gap, thin listing): advance the state only
+        _save_state(symbol, state)
+        return state
     if parquet.exists():
         have = pd.read_parquet(parquet)
         have = have[have["tick_n"] > 0]  # legacy runs wrote empty-minute rows
-        bars = pd.concat([have, bars], ignore_index=True).sort_values("ts").reset_index(drop=True)
+        if len(have):
+            bars = pd.concat([have, bars], ignore_index=True).sort_values("ts").reset_index(drop=True)
     bars.to_parquet(parquet, index=False)
+    state["bars"] = int(len(bars))
 
     state.update({
         "next_from": chunk_end.isoformat(),
@@ -198,7 +217,7 @@ def main() -> None:
             if state["done"]:
                 break
             if time.time() - started > args.budget:
-                print(f"[budget] {sym} incomplete: {state['bars']:,} bars so far, "
+                print(f"[budget] {sym} incomplete: {state.get('bars', 0):,} bars so far, "
                       f"{state['ticks']:,} ticks; re-run to continue")
                 break
         el = round(time.time() - started, 1)
@@ -207,6 +226,14 @@ def main() -> None:
               f"done={st.get('done')} elapsed={el}s")
 
     out = config.DATA_DIR / "mt5_manifest.json"
+    merged = {}
+    if out.exists():
+        try:
+            merged = json.loads(out.read_text(encoding="utf-8")).get("symbols", {})
+        except (json.JSONDecodeError, OSError):
+            merged = {}
+    # shards overwrite each other's manifest: merge so the record stays complete
+    merged.update({sym: _load_state(sym, start, end) for sym in symbols})
     payload = {
         "source": "mt5_mcp",
         "server": info.get("serverInfo"),
@@ -216,7 +243,7 @@ def main() -> None:
         "tz_offset_hours": MT5_TZ_OFFSET_HOURS,
         "terminal_clock": clock,
         "run_seconds": round(time.time() - started, 1),
-        "symbols": {sym: _load_state(sym, start, end) for sym in args.symbols},
+        "symbols": merged,
     }
     out.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     print(f"\nwrote {out}")
