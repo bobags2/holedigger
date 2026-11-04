@@ -58,6 +58,16 @@ def audit_symbol(sym: str, hours: list[int]) -> dict:
         out[f"spread_at_{h:02d}_bp"] = (
             round(float(by_hour.loc[h, "med_sp"]), 3) if h in by_hour.index else None
         )
+    # Overnight gap profile: the noise floor for any session-window edge on equities
+    d = df.set_index("ts")["close"].resample("D").agg(["first", "last"]).dropna()
+    if len(d) > 2:
+        g = ((d["first"] - d["last"].shift()) / d["last"].shift()).dropna()
+        out["overnight_gap_abs_pct"] = {
+            "median": round(float(g.abs().median()) * 100, 3),
+            "p95": round(float(g.abs().quantile(0.95)) * 100, 3),
+            "gt2pct_days": int((g.abs() > 0.02).sum()),
+            "n_days": int(len(g)),
+        }
     return out
 
 
@@ -72,19 +82,22 @@ def main() -> None:
     with args.out.open("w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, sort_keys=True)
 
-    print(f"{'symbol':>7} {'bars':>8} {'days':>6} {'med_bp':>7} {'p90_bp':>7} {'hrs':>4} "
+    print(f"{'symbol':>7} {'bars':>8} {'days':>6} {'med_bp':>7} {'p90_bp':>7} {'hrs':>4} {'gap%':>6} {'gap95':>6} "
           + " ".join(f"{h:02d}h" for h in args.hours))
     print("-" * (38 + 4 * len(args.hours)))
     for r in results:
         if "error" in r:
             print(f"{r['symbol']:>7} {r['error']}")
             continue
+        gp = r.get("overnight_gap_abs_pct")
+        gm = f"{gp['median']:>6.2f}" if gp else "   n/a"
+        g95 = f"{gp['p95']:>6.2f}" if gp else "   n/a"
         cells = " ".join(
             "  n/a" if r.get(f"spread_at_{h:02d}_bp") is None else f"{r[f'spread_at_{h:02d}_bp']:>4.2f}"
             for h in args.hours
         )
         print(f"{r['symbol']:>7} {r['bars']:>8,} {r['days']:>6.0f} {r['median_spread_bp']:>7.3f} "
-              f"{r['p90_spread_bp']:>7.3f} {r['hours_covered']:>4} {cells}")
+              f"{r['p90_spread_bp']:>7.3f} {r['hours_covered']:>4} {gm} {g95} {cells}")
     print(f"\n(columns {', '.join(f'{h:02d}h' for h in args.hours)} = median spread bp at that UTC hour)")
     print(f"wrote {args.out}")
 

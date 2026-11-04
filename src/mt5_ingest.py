@@ -30,9 +30,9 @@ import pandas as pd
 from . import config
 from .mt5 import Mt5
 
-CHUNK_HOURS = 4
+CHUNK_HOURS = 12
 TICK_LIMIT = 100000
-CHUNK_DAYS = 7
+CHUNK_DAYS = 14
 
 # Terminal-local is UTC+3, measured by the EURUSD cross-source shift scan against the
 # cTrader (UTC-labelled) parquet: return correlation peaks at a -3h shift. UTC = local - 3.
@@ -140,6 +140,9 @@ def ingest_chunk(mt5: Mt5, symbol: str, start: datetime, until: datetime,
     chunk_end = min(next_from + timedelta(days=chunk_days), until)
     ticks = pull_ticks(mt5, symbol, next_from, chunk_end)
     bars = mid_minute_bars(ticks)
+    # MT5 stamps terminal-local (measured UTC+3); store UTC so every source and every
+    # window grid uses the same clock, and equity sessions land inside the 00-20h grid.
+    bars["ts"] = bars["ts"] - pd.Timedelta(hours=MT5_TZ_OFFSET_HOURS)
     parquet = _parquet_path(symbol)
     if parquet.exists():
         have = pd.read_parquet(parquet)
@@ -160,10 +163,12 @@ def ingest_chunk(mt5: Mt5, symbol: str, start: datetime, until: datetime,
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--symbols", nargs="+", required=True)
+    ap.add_argument("--symbols", nargs="+", default=None, help="explicit symbol list (or use --sector)")
     ap.add_argument("--days", type=int, default=350, help="days of history to fetch")
     ap.add_argument("--from", dest="date_from", default=None, help="YYYY-MM-DD (overrides --days)")
     ap.add_argument("--budget", type=float, default=250.0, help="wall-clock seconds before stopping cleanly")
+    ap.add_argument("--sector", default=None, help="resolve symbols by MT5 sector (e.g. Technology) instead of --symbols")
+    ap.add_argument("--shard", default=None, help="take a strided slice k/n of the resolved list (e.g. 0/3), so parallel jobs split the universe")
     args = ap.parse_args()
 
     config.ensure_dirs()
@@ -178,7 +183,16 @@ def main() -> None:
     start = datetime.strptime(args.date_from, "%Y-%m-%d") if args.date_from else end - timedelta(days=args.days)
     started = time.time()
 
-    for sym in args.symbols:
+    if args.sector:
+        symbols = [s["symbol"] for s in mt5.symbols()["symbols"] if s.get("sector") == args.sector]
+    else:
+        symbols = args.symbols or []
+    if not symbols:
+        raise SystemExit("nothing to pull: pass --symbols or --sector")
+    if args.shard:
+        k, n = (int(p) for p in args.shard.split("/"))
+        symbols = symbols[k::n]
+    for sym in symbols:
         while True:
             state = ingest_chunk(mt5, sym, start, end)
             if state["done"]:
@@ -198,6 +212,7 @@ def main() -> None:
         "server": info.get("serverInfo"),
         "pulled_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "window_terminal_local": [start.strftime("%Y-%m-%dT%H:%M:%S"), end.strftime("%Y-%m-%dT%H:%M:%S")],
+        "timestamps_stored_as": "UTC (terminal local + %+.0fh)" % -MT5_TZ_OFFSET_HOURS,
         "tz_offset_hours": MT5_TZ_OFFSET_HOURS,
         "terminal_clock": clock,
         "run_seconds": round(time.time() - started, 1),

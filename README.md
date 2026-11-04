@@ -342,6 +342,29 @@ commission, XTIUSD 17+2h +16.5 bp, EURUSD 18+1h +1.0 bp) but all sit below the f
 for mechanism-first families: at N = 1 the two-sided bar is ~2.0, so a pre-registered single
 hypothesis on a candidate like these would be decidable; at N = 690 it is not.
 
+## Equities universe (MT5 Technology sector, 105 names)
+
+The broker's **Technology** sector (105 instruments) exists only on MT5 — the cTrader feed has
+no equities. Two things had to change to make them usable:
+
+1. **Clock**: MT5 stamps terminal-local (UTC+3). The ingest now subtracts the offset and stores
+   UTC, so one window grid covers both asset classes and the equity session (13:30–20:00 UTC)
+   actually falls inside the default 00–20h entry range. Verified on the pilot: Apple's bars
+   start exactly 13:30 UTC.
+2. **Quality measure**: equities carry overnight gaps (earnings, dividends, regime volatility) —
+   the audit now reports a gap profile, because that is the noise floor any session-window edge
+   has to clear. In the current regime the median overnight gap is ~1% (p95 ~2.7%), which is
+   larger than most session-window effects, so candidates must clear it by construction.
+
+Costs from the pilot: median spread 4.0 bp for the large caps (Apple 4.1, NVIDIA 3.7), 9 bp for
+Robinhood, 17 bp for Atlassian — declining through the session. Commissions are not yet in the
+model for equities (spread dominates; needs the user's per-share numbers).
+
+The universe is one correlated factor, so 105 names ≈ one bet repeated: the permutation null
+remains valid and conservative (per-symbol permutation gives independence the real cross-section
+does not have), but a "survivor" in 6,555 candidates means little, and the mechanism-first
+discipline matters more here than anywhere.
+
 ## Design rules this repo encodes
 
 1. **Audit before modelling.** Anything derived (features, labels, regimes) inherits
