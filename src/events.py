@@ -101,7 +101,8 @@ def build_table(rows: list[dict], descriptions: dict[str, dict]) -> pd.DataFrame
         ]
     )
     df = df.merge(meta, on="event_id", how="left")
-    df["ts"] = pd.to_datetime(df["time"]) - pd.Timedelta(hours=SERVER_UTC_OFFSET_HOURS)
+    # the merge can coerce ts to object; force datetime64 before anything stores it
+    df["ts"] = (pd.to_datetime(df["time"]) - pd.Timedelta(hours=SERVER_UTC_OFFSET_HOURS)).astype("datetime64[ns]")
     df = df.rename(
         columns={
             "actual_value": "actual",
