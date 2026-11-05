@@ -221,6 +221,10 @@ src/pair_sweep.py   family 3: pair dislocation reversion (rolling beta/z, sequen
 scripts/first_look.py  end-to-end calibration smoke on real data
 scripts/cost_probe.py  edge vs costs by timeframe and move-size bucket
 scripts/tape_analysis.py  spread distributions from a live tape
+src/mt5_clock.py    the MT5 trade-server clock: per-date US-DST offset, both conversions
+scripts/mt5_audit.py   spread-by-hour market quality (true-UTC hours)
+scripts/clock_shift_scan.py       cross-source shift scan: which hour shift aligns MT5 with cTrader
+scripts/casualty_before_after.py  a published MT5 window on the stored clock vs corrected UTC
 tests/              contract tests for the statistical core (plain python, no pytest)
 ```
 
@@ -462,6 +466,15 @@ applied at the MT5 parquet read sites — `scripts/mt5_audit.py`, `scripts/dislo
 `scripts/event_sweep.py`, `scripts/event_test.py`, and `build_mt5_series` in
 `src/window_sweep.py` — and `src/mt5_ingest.py` now writes true UTC, repairing the existing
 rows once on the next append. **31–32% of the panel's bars move by one hour.**
+
+Reproduce it with the tracked tools — the first rebuilds the month table above from the
+cTrader CSVs, the second recomputes a published window on both clocks and says which column
+`artifacts/window_sweep.json` agrees with:
+
+```powershell
+python -m scripts.clock_shift_scan          # per month: k*, match, amatch, return corr
+python -m scripts.casualty_before_after     # copper 03:00+2h and lead 06:00+2h, before/after
+```
 
 The equities anchor, re-derived: the equity session is the only part of the panel whose
 *true-UTC* open moves at a DST boundary (9:30 ET = 13:30 UTC in summer, 14:30 UTC in
