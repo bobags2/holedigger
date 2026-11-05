@@ -27,7 +27,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import config, costs, noise_floor
+from . import config, costs, mt5_clock, noise_floor
 from .registry import Registry
 from .surrogates import stationary_bootstrap_indices
 
@@ -63,9 +63,15 @@ def build_series(symbol: str) -> Series:
 
 
 def build_mt5_series(symbol: str) -> Series:
-    """M1 mid bars from MT5 ticks, carrying per-bar spread for per-trade costing."""
+    """M1 mid bars from MT5 ticks, carrying per-bar spread for per-trade costing.
+
+    The parquet stamps carry the old constant-offset ingest (server - 3h, exact only in
+    US summer), so they pass through ``stored_to_utc`` — the repair for the trade
+    server's US-DST clock — before any bar time is derived.
+    """
     df = pd.read_parquet(config.PARQUET_DIR / f"{symbol}_MT5_M1.parquet")
-    return series_from_bars(symbol, df["ts"], df["close"].to_numpy(), df["spread_med_bp"].to_numpy())
+    ts = mt5_clock.stored_to_utc(df["ts"])
+    return series_from_bars(symbol, ts, df["close"].to_numpy(), df["spread_med_bp"].to_numpy())
 
 
 def default_windows(holds: list[int] = HOLDS, max_exit: int = MAX_EXIT_HOUR) -> list[tuple[int, int]]:
