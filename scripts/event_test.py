@@ -22,6 +22,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src import config  # noqa: E402
+from src import mt5_clock  # noqa: E402
 
 MIN_MINUTES = 5   # spacing between two events to call them independent
 TOLERANCE_MIN = 2  # control window may sit this far off the event clock time
@@ -36,6 +37,7 @@ def load_events() -> pd.DataFrame:
 
 def load_mid(symbol: str, timeframe: str = "5min") -> pd.DataFrame:
     df = pd.read_parquet(config.PARQUET_DIR / f"{symbol}_MT5_M1.parquet")
+    df["ts"] = mt5_clock.stored_to_utc(df["ts"])  # parquet clock -> true UTC
     m = df.set_index("ts")["close"].resample(timeframe).last().dropna()
     return m.to_frame("close")
 

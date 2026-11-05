@@ -9,8 +9,12 @@ Resume: progress lives in ``data/mt5_state_<SYM>.json``; every chunk rewrites th
 and the state, so an interrupted run just continues on the next invocation. ``--budget``
 stops the run cleanly before the host's timeout so a partial pass never loses work.
 
-Timestamps are stored exactly as the terminal returns them ("terminal local"); the
-terminal clock is recorded in the manifest for later UTC conversion.
+Timestamps are converted to **true UTC** on write. The trade-server offset is per date —
+UTC+3 through US summer time, UTC+2 through US standard time (`src/mt5_clock.py`) — so
+every reader can use the stamps as UTC without knowing when the pull happened. The panels
+pulled before that fix (2025-11-19..2026-11-04) carry ``server - 3h`` and are repaired on
+read with `mt5_clock.stored_to_utc`; this module repairs them once, on the next append, so
+a file never mixes the two clocks.
 
 Usage::
 
@@ -28,15 +32,16 @@ import numpy as np
 import pandas as pd
 
 from . import config
+from . import mt5_clock
 from .mt5 import Mt5
 
 CHUNK_HOURS = 12
 TICK_LIMIT = 100000
 CHUNK_DAYS = 14
 
-# Terminal-local is UTC+3, measured by the EURUSD cross-source shift scan against the
-# cTrader (UTC-labelled) parquet: return correlation peaks at a -3h shift. UTC = local - 3.
-MT5_TZ_OFFSET_HOURS = 3.0
+# Marker written into the per-symbol resume state once a parquet holds true UTC. Its
+# absence means the file was written by the old fixed-3h ingest and must be repaired.
+CLOCK_TAG = "utc"
 
 
 def _p90(s) -> float:
@@ -148,9 +153,10 @@ def ingest_chunk(mt5: Mt5, symbol: str, start: datetime, until: datetime,
     chunk_end = min(next_from + timedelta(days=chunk_days), until)
     ticks = pull_ticks(mt5, symbol, next_from, chunk_end)
     bars = mid_minute_bars(ticks)
-    # MT5 stamps terminal-local (measured UTC+3); store UTC so every source and every
-    # window grid uses the same clock, and equity sessions land inside the 00-20h grid.
-    bars["ts"] = bars["ts"] - pd.Timedelta(hours=MT5_TZ_OFFSET_HOURS)
+    # MT5 stamps trade-server time, whose offset from UTC is per date (UTC+3 in US DST,
+    # UTC+2 in US standard time); store true UTC so every source and every window grid
+    # uses the same clock, and equity sessions land inside the 00-20h grid.
+    bars["ts"] = mt5_clock.broker_to_utc(bars["ts"])
     parquet = _parquet_path(symbol)
     state.update({
         "next_from": chunk_end.isoformat(),
@@ -166,6 +172,10 @@ def ingest_chunk(mt5: Mt5, symbol: str, start: datetime, until: datetime,
         have = pd.read_parquet(parquet)
         have = have[have["tick_n"] > 0]  # legacy runs wrote empty-minute rows
         if len(have):
+            if state.get("clock") != CLOCK_TAG:
+                # rows written before the per-date fix carry server - 3h; move them to
+                # true UTC now, so the file never holds two clocks at once
+                have["ts"] = mt5_clock.stored_to_utc(have["ts"])
             bars = pd.concat([have, bars], ignore_index=True).sort_values("ts").reset_index(drop=True)
     bars.to_parquet(parquet, index=False)
     state["bars"] = int(len(bars))
@@ -176,6 +186,7 @@ def ingest_chunk(mt5: Mt5, symbol: str, start: datetime, until: datetime,
         "ticks": int(state["ticks"] + len(ticks)),
         "chunks": int(state["chunks"] + 1),
         "bars": int(len(bars)),
+        "clock": CLOCK_TAG,
     })
     _save_state(symbol, state)
     return state
@@ -240,8 +251,8 @@ def main() -> None:
         "server": info.get("serverInfo"),
         "pulled_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "window_terminal_local": [start.strftime("%Y-%m-%dT%H:%M:%S"), end.strftime("%Y-%m-%dT%H:%M:%S")],
-        "timestamps_stored_as": "UTC (terminal local + %+.0fh)" % -MT5_TZ_OFFSET_HOURS,
-        "tz_offset_hours": MT5_TZ_OFFSET_HOURS,
+        "timestamps_stored_as": "UTC (terminal local - trade-server offset, per date)",
+        "server_offset_rule": "3h in US DST, 2h otherwise; src/mt5_clock.py is the authority",
         "terminal_clock": clock,
         "run_seconds": round(time.time() - started, 1),
         "symbols": merged,

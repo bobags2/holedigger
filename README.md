@@ -298,11 +298,17 @@ before a host timeout and continues on the next invocation (`data/mt5_state_<SYM
 holds progress, `data/mt5_manifest.json` the terminal clock). Tick responses are split
 adaptively so a 100k-row limit never silently truncates — NAS100 alone is ~460k ticks/day.
 
-Clock: terminal-local timestamps are **UTC+3** (measured by cross-source shift scan against
-the cTrader UTC-labelled parquet: correlation peaks at -3h). MT5 hour 06:00 = UTC 03:00 —
-which is exactly the copper fade window, so the sweep's hour labels carry over with that
-offset in mind. Cross-source agreement was validated: 63% identical 5-min closes, 4 bp rms
-difference (same price stream, different tick aggregation; no systematic bid/mid offset).
+Clock: the trade-server offset is **per date**, not a constant — UTC+3 through US summer
+time, UTC+2 through US standard time (see *The trade-server offset is per date* below). The
+panels pulled in this section were written with a hardcoded −3h, so their stamps are exact
+through US summer time and 1h early through US standard time; readers repair them with
+`src.mt5_clock.stored_to_utc`. Cross-source agreement measured **per month** against the
+cTrader (true-UTC labelled) feed: 0.91–0.96 of 5-min closes identical with return
+correlation ≈ 1.00 at the season-correct shift, against 0.02–0.03 and ≈ 0.00 at a constant
+−3h through the winter months. The "63% identical closes at −3h" figure quoted in this
+section earlier was the **summer share of the window** (66.6% of its bars), not a
+validation: at a constant shift the summer half matches and the winter half does not, and
+63% is the weighted average of ≈95% and ≈2%.
 
 Spread costing (`--source mt5`) prices each trade with the spread *at its own entry and
 exit bars* (half a spread each side), instead of a per-symbol session median. Confirmed
@@ -347,10 +353,14 @@ hypothesis on a candidate like these would be decidable; at N = 690 it is not.
 The broker's **Technology** sector (105 instruments) exists only on MT5 — the cTrader feed has
 no equities. Two things had to change to make them usable:
 
-1. **Clock**: MT5 stamps terminal-local (UTC+3). The ingest now subtracts the offset and stores
-   UTC, so one window grid covers both asset classes and the equity session (13:30–20:00 UTC)
-   actually falls inside the default 00–20h entry range. Verified on the pilot: Apple's bars
-   start exactly 13:30 UTC.
+1. **Clock**: MT5 stamps trade-server time, whose offset from UTC is per date (UTC+3 in US
+   summer time, UTC+2 in US standard time — see *The trade-server offset is per date*). The
+   ingest normalizes to UTC, so one window grid covers both asset classes and the equity
+   session falls inside the default 00–20h entry range. On the stored clock the first bar is
+   13:30 for every name in every month, *including* the days after US DST ended (Nov 2–4,
+   310 name-days): 9:30 ET is 16:30 server in both seasons, i.e. 13:30 UTC in summer and
+   14:30 UTC in standard time — so the constant 13:30 reading is what identifies the server
+   as US-DST-following, not what confirms the stored clock as UTC.
 2. **Quality measure**: equities carry overnight gaps (earnings, dividends, regime volatility) —
    the audit now reports a gap profile, because that is the noise floor any session-window edge
    has to clear. In the current regime the median overnight gap is ~1% (p95 ~2.7%), which is
@@ -397,13 +407,69 @@ after seeing the P&L is not evidence, so that stays a lead rather than a candida
 
 ## Clock verification and the FX/metals re-run
 
-Clock: the cTrader feed's UTC labels are **true UTC**, established two independent ways —
-MT5 equity bars land at exactly 13:30 UTC after subtracting the 3h terminal offset (the US
-cash open is an external reference), and cross-source the MT5 series aligns to the cTrader
-series at exactly a −3h shift. The ingest now normalizes MT5 to UTC, so both sources
-share one clock and every window label means what it says.
+Clock: the cTrader feed's UTC labels are **true UTC** — its EURUSD weekly open moves
+22:02 → 21:02 exactly on the two US DST Sundays, its daily break likewise (21:00 in US
+summer time, 22:00 in standard time) and its last bar lands within minutes of the file's
+download time. The MT5 panels of that era were written with a hardcoded −3h against a
+server offset that is **not constant**, so the earlier "the −3h shift verifies the clock"
+reading is **withdrawn**: −3h matches ≈95% of bars through US summer time and ≈2% through
+US standard time, and the pooled 63% was the summer share of the window (66.6% of its
+bars), not a validation.
 
-Sector-level re-run on the FX/metals universe (10 instruments, UTC clock, 200 worlds):
+### The trade-server offset is per date (the ingest was hardcoded UTC+3)
+
+Fusion's server follows **US DST: UTC+3 through US summer time, UTC+2 through US standard
+time**. Three independent measurements on the 2025-11-19..2026-11-04 panel:
+
+* **cross-source, per month** (5-min closes against the cTrader M1 file): a **+1h** shift is
+  needed through US standard time (0.51–0.95 of bars identical, 5-min returns correlate
+  ≈1.00) and **0h** through US summer time (0.64–0.96, ≈1.00); at a constant shift the other
+  season matches 0.004–0.03 with correlation ≈0.00. Day resolution puts the switch between
+  Fri 2026-03-06 and Mon 2026-03-09 — the second Sunday of March;
+* **session opens** (no price equality involved): the MT5 panel's EURUSD weekly open reads
+  21:02 in *every* month, while cTrader's moves 22:02 → 21:02 on exactly 2025-11-02 and
+  2026-03-08; gold's daily open is 22:00 stored versus 23:00/22:00 in cTrader;
+* **the terminal's own snapshot** in `data/mt5_manifest.json`: trade server
+  2026-11-05T02:25:52 against `pulled_utc` 2026-11-05T00:25:53Z → +2h after US DST ended.
+  The snapshot was recorded all along; the ingest ignored it and used the constant.
+
+The fix is `src/mt5_clock.py`: `utc_offset_hours(dates)` returns 3.0 inside the US DST
+window ([second Sunday of March 07:00Z, first Sunday of November 06:00Z)) and 2.0 outside,
+`broker_to_utc` converts raw terminal stamps, and `stored_to_utc` repairs the parquets
+already on disk (`server − 3h`, so +1h through US standard time, 0h through summer). It is
+applied at the MT5 parquet read sites — `scripts/mt5_audit.py`, `scripts/dislocation_test.py`,
+`scripts/event_sweep.py`, `scripts/event_test.py`, and `build_mt5_series` in
+`src/window_sweep.py` — and `src/mt5_ingest.py` now writes true UTC, repairing the existing
+rows once on the next append. **31–32% of the panel's bars move by one hour.**
+
+The equities anchor, re-derived: the equity session is the only part of the panel whose
+*true-UTC* open moves at a DST boundary (9:30 ET = 13:30 UTC in summer, 14:30 UTC in
+standard time). All 105 names start at stored 13:30 in every month *including* the three
+post-DST days (Nov 2–4, 310 name-days) — i.e. at 16:30 server in both seasons, which is what
+shows the server switched to +2, and shows that a constant 13:30 reading was never evidence
+of a true-UTC stored clock.
+
+What the mistake cost, on the two published casualties (74 of 242 trades, ~1/3 of the
+sample, sat an hour off its label):
+
+| window (true UTC, hold 2h) | before (stored clock) | after (corrected) | per-trade spread cost |
+|---|---|---|---|
+| XCUUSD 03:00+2h — the copper fade | edge −2.64 bp, t −1.29 | edge −1.11 bp, t −0.55 | 7.39 → 7.37 bp |
+| XPBUSD 06:00+2h — lead "ramp doesn't replicate, opposite sign" | edge −1.79 bp, t −1.05 | edge −0.42 bp, t −0.27 | 26.5 → 26.9 bp |
+
+The copper fade weakens — most of its apparent 2.6 bp was the label — and the lead's
+"opposite sign against the cTrader ramp" was largely a 1-hour label error: honestly
+labelled, that window shows almost nothing. Both verdicts survive (no replication, dead on
+cost); the copper gross edge is *smaller* than published, not larger.
+
+Fixed-UTC window construction (`src/window_sweep.py` `MAX_EXIT_HOUR = 20`): still never
+crosses the daily break — with true-UTC labels the break sits at 21:00 (US summer time) /
+22:00 (standard time), so the cap keeps 1–2h of margin — but the margin now varies by
+season and the late entries change sample size materially (copper 18:00+2h: n 19 → 96).
+
+Sector-level re-run on the FX/metals universe (10 instruments, 200 worlds) — computed on the
+**uncorrected** clock, so its hour labels are stored-clock ones and ~32% of the bars behind
+them sat an hour off; kept as the pre-fix record:
 
 | window | sector z | null p95 | percentile |
 |---|---|---|---|

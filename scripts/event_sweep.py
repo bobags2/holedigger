@@ -32,6 +32,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src import config  # noqa: E402
+from src import mt5_clock  # noqa: E402
 from scripts.event_test import (  # noqa: E402
     control_times,
     event_windows,
@@ -44,6 +45,7 @@ TRIM = 0.05
 
 def load_series(symbol: str, timeframe: str = "5min") -> pd.DataFrame:
     df = pd.read_parquet(config.PARQUET_DIR / f"{symbol}_MT5_M1.parquet")
+    df["ts"] = mt5_clock.stored_to_utc(df["ts"])  # parquet clock -> true UTC
     g = df.set_index("ts").resample(timeframe)
     out = pd.DataFrame({
         "close": g["close"].last(),

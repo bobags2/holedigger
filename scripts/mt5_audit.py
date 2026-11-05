@@ -20,6 +20,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src import config  # noqa: E402
+from src import mt5_clock  # noqa: E402
 
 
 def audit_symbol(sym: str, hours: list[int]) -> dict:
@@ -29,6 +30,7 @@ def audit_symbol(sym: str, hours: list[int]) -> dict:
     df = pd.read_parquet(path)
     if not len(df):
         return {"symbol": sym, "error": "empty"}
+    df["ts"] = mt5_clock.stored_to_utc(df["ts"])  # parquet clock -> true UTC
     df["hour"] = df["ts"].dt.hour
     span_days = (df["ts"].iloc[-1] - df["ts"].iloc[0]).total_seconds() / 86400
     by_hour = df.groupby("hour").agg(
