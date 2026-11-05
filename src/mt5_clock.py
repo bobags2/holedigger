@@ -23,9 +23,10 @@ Two clocks therefore exist around this source:
   `src/mt5_ingest.py`, which subtracted a *fixed* 3h (``LEGACY_INGEST_OFFSET_HOURS``).
   Those stamps are exact through US summer time and 1h early through US standard time,
   so every reader of an MT5 parquet must pass its ``ts`` column through
-  :func:`stored_to_utc`. That is the fix for the 2025-11-19..2026-11-04 panels; a future
-  re-pull writes true UTC (see `src/mt5_ingest.py`), after which the repair is a no-op by
-  construction only for symbols whose ingest state says ``clock == "utc"``.
+  :func:`stored_to_utc`. That is the fix for the 2025-11-19..2026-11-04 panels. A future
+  re-pull writes true UTC instead (see `src/mt5_ingest.py`), and then :func:`stored_to_utc`
+  must be dropped from that symbol's readers — it would move its winter bars an hour the
+  wrong way. The per-symbol ingest state carries ``clock == "utc"`` once that has happened.
 
 Usage::
 
