@@ -385,11 +385,32 @@ session — e.g. Accenture 14.7 bp at 14:00 UTC → 7.8 bp at 19:00 — and the 
 ~10× in cost, from Berkshire 3.2 / Visa 3.4 / Alphabet-A 3.5 bp to NIO 105 / Snapchat 90 /
 Lucid 92 bp at the wide end. Overnight gaps median 0.5–1.8% are the noise floor.
 
-**The finding** (sector-level test, calibrated inside the same permutation null): the
-18:00→20:00 UTC window (13:00–15:00 ET) drifts down sector-wide — z = **−6.07 vs null p95
-2.64, 100th percentile, n = 105**. The same shape appears in the overlapping 16:00–20:00
-window (z = −5.53). This is the first candidate in the project to clear a family null
-decisively.
+**The finding — withdrawn (2026-11-05).** The published headline was z = −6.07 vs null p95
+2.64, 100th percentile, n = 105 for the 18:00→20:00 UTC window (z = −5.53 for the
+overlapping 16:00–20:00 one). That calibration is invalid: it permuted each symbol on its
+own, which destroys the cross-section's co-movement, so the pooled z
+(`mean(t_i)/(sd(t_i)/√N)`) faced null t's that were independent while the real t's are
+correlated through the market factor. On pure one-factor noise that null "rejects" ~100% of
+worlds (`test_per_symbol_null_inflates_on_correlated_noise`).
+
+**The corrected re-run** (`artifacts/window_sweep_shared_intraday.json`, 200 worlds). The
+corrected null shuffles one day order *and* one intraday slot order across every name:
+marginals, day-boundary gap bars and the per-bar cross-section are preserved, clock-slot
+alignment is destroyed. It holds the pure-noise rejection at ~12% (`test_sector_null_holds_on_correlated_noise`, `test_shared_null_fp_and_power`).
+It needs every symbol on one bar grid (same days, same bar count per day), which the full
+ragged panel does not satisfy (different histories, missing minutes), so it runs on the
+largest grid-homogeneous subpanel — 47 of the 105 names × 139 days, all at 390 M1 bars/day
+(`artifacts/equity_symbols_shared_grid.txt`). There the scan's best window is 18:00+2h with
+z = **−5.62**: 98.5th percentile of its own null (p95 4.38), but only the **80.5th
+percentile of the null scan-maximum** (p95 6.70 over 28 windows) — the sector-wide afternoon
+drift does **not** clear the corrected family null. The same 47 names under the old
+per-symbol null put the same z at the 100th percentile (scan-max p95 3.26); that gap is the
+size of the artifact. The full-universe re-run (`artifacts/window_sweep_equities_dst.json`,
+per-symbol fallback — `null_kind` is recorded in every artifact and sector row) gives
+18:00+2h z = −6.08 on DST-corrected UTC bars, but with the same invalid calibration. The
+equities panel is almost entirely US summer time, so the clock repair moves only the last
+three trading days (Nov 2–4). The drift itself is unchanged and remains cost-consumed below
+— it is its *significance* that is withdrawn, not the drift.
 
 **The cost verdict** (`scripts/sector_test.py` — per-day, per-name, spread measured at the
 trade's own bars, then an equal-weight portfolio):
@@ -486,10 +507,15 @@ Priced as portfolios (`scripts/sector_test.py`):
   (+4.11 → +1.34), cost **7.39** → net **−4.75 bp/trade**, both halves strongly negative.
   So the clock was not the failure — the spread was, and the gross edge itself was fading.
 
-Verdict across all three universes: equities showed the largest real effect (z = −6.07) and it
-was cost-consumed; FX/metals show the same shape at a third the magnitude and are also
-cost-consumed. The pattern is consistent: microstructure effects at these horizons are real,
-small, and priced.
+Verdict across all three universes: equities show the largest real effect (the 18:00→20:00
+drift: every name is weakly negative — mean per-name t ≈ −0.6 with sd ≈ 1.0 across 105 names,
+which is what makes the pooled z large — but it fails the corrected sector null, 80.5th
+percentile of the null scan-max, so the published z = −6.07 was an artifact of the per-symbol
+null; see the withdrawal above) and the cost consumes it. FX/metals show the same
+shape at a third the magnitude and are also cost-consumed; their sector table above is on the
+uncorrected clock *and* the superseded null (their bar grid is ragged too, so a corrected
+re-run needs a grid-homogeneous subpanel). The pattern is consistent: microstructure effects
+at these horizons are real, small, and priced.
 
 ## Event-driven study (calendar-triggered)
 
