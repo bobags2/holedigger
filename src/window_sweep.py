@@ -125,11 +125,92 @@ def _tstat_of(x: np.ndarray) -> float:
     return float(x.mean() / (sd / np.sqrt(len(x))))
 
 
+def _window_stats_of(
+    s: "Series", seg_sym: tuple, idx: np.ndarray | None = None
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """(mean, t, n) per window under bar arrangement ``idx`` (``None`` = the real series).
+
+    The real path and every null world are built through this one function, so a
+    candidate's null statistic cannot drift from its real statistic.
+    """
+    r = s.r if idx is None else s.r[idx]
+    return window_stats(pnl_matrix(np.cumsum(r), *seg_sym))
+
+
+def _t_of(s: "Series", seg_sym: tuple, idx: np.ndarray | None = None) -> np.ndarray:
+    """Per-window t only; the t-view of ``_window_stats_of`` used by the null loops."""
+    return _window_stats_of(s, seg_sym, idx)[1]
+
+
+def _day_structure(s: "Series") -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    days = np.unique(s.bar_day)
+    starts = np.searchsorted(s.bar_day, days, side="left")
+    lengths = np.diff(np.append(starts, len(s.bar_day)))
+    return days, starts, lengths
+
+
+def _shared_day_grid_ok(series: dict[str, "Series"]) -> bool:
+    """All series must present the same days with the same bar count per day."""
+    ref = next(iter(series.values()))
+    d0, _s0, l0 = _day_structure(ref)
+    # ``intraday_slot_null_masks`` writes exactly L = lengths[0] bars per day, so the
+    # counts must also be uniform across days: a series whose days disagree with each
+    # other would get masks that index the wrong bars.
+    if len(l0) == 0 or not np.all(l0 == l0[0]):
+        return False
+    for s in series.values():
+        d, _s, l = _day_structure(s)
+        if len(d) != len(d0) or not np.array_equal(d, d0):
+            return False
+        if not np.array_equal(l, l0):
+            return False
+    return True
+
+
+def intraday_slot_null_masks(
+    series: dict[str, "Series"], rng: np.random.Generator
+) -> dict[str, np.ndarray]:
+    """One null world shared by every symbol: shuffle day order and intraday slot usage.
+
+    Destroyed: clock-time alignment. Destination slot j receives the source day's
+    ``slot_order[j]`` bar, so a window at UTC hour h samples an arbitrary set of intraday
+    returns rather than the same clock hour every day.
+
+    Preserved: each symbol's marginal return distribution (a pure reindexing, never
+    resampling); day-boundary bars — ``slot_order[0] == 0`` always, so the overnight /
+    weekend gap return sitting in each day's first bar can never be moved into an intraday
+    window that cannot contain it; and the cross-sectional composition of every bar row —
+    all names apply the same ``day_order`` and ``slot_order``, so they keep co-moving through
+    the market factor. That last property is what the sector null needs: the old per-symbol
+    permutation made real t's (correlated) face null t's (independent), whose cross-symbol
+    sd is much wider, so pooled ``mean(t_i)/(sd(t_i)/sqrt(N))`` rejected 50-70% of pure
+    noise worlds instead of ~5%.
+
+    Callers must align universes first: see ``_shared_day_grid_ok``.
+    """
+    ref = next(iter(series.values()))
+    days, _starts, lengths = _day_structure(ref)
+    L = int(lengths[0])
+    day_order = stationary_bootstrap_indices(len(days), 1.0, rng)
+    # slot 0 pinned: gaps stay at day boundaries; the rest are freely reshuffled.
+    slot_order = np.concatenate(([0], 1 + rng.permutation(L - 1))) if L > 2 else np.arange(L)
+    masks = {}
+    for sym, s in series.items():
+        starts = np.searchsorted(s.bar_day, days, side="left")
+        idx = np.empty(len(s.bar_day), dtype=np.int64)
+        for dest_day, src_day in enumerate(day_order):
+            lo = starts[dest_day]
+            idx[lo : lo + L] = starts[src_day] + slot_order
+        masks[sym] = idx
+    return masks
+
+
 def run_sweep(
     series: dict[str, Series],
     windows: list[tuple[int, int]],
     n_worlds: int,
     seed: int = config.SEED,
+    allow_shared_world: bool = True,
 ) -> dict:
     rng = np.random.default_rng(seed)
     syms = list(series)
@@ -138,8 +219,7 @@ def run_sweep(
     seg = {sym: window_segments(s, windows) for sym, s in series.items()}
     real_mean, real_t, real_n = {}, {}, {}
     for sym, s in series.items():
-        pnl = pnl_matrix(np.cumsum(s.r), *seg[sym])
-        real_mean[sym], real_t[sym], real_n[sym] = window_stats(pnl)
+        real_mean[sym], real_t[sym], real_n[sym] = _window_stats_of(s, seg[sym])
 
     # Per-trade spread costing: a trade crosses half a spread on each side, measured at
     # the actual entry and exit bars. Only sources with a spread column (MT5 ticks) get it.
@@ -164,16 +244,29 @@ def run_sweep(
                 "cost_bp": float(cost.mean()),
             }
 
+    # One null world must keep the cross-section co-moving (shared day AND slot order) or
+    # the pooled sector z compares correlated real t's against independent null t's and
+    # is significant on pure noise. The shared path needs every symbol on one bar grid;
+    # on ragged panels (different histories, missing minutes) fall back to the per-symbol
+    # permutation and say so in the result.
+    shared_ok = allow_shared_world and _shared_day_grid_ok(series)
+    null_kind = "shared-intraday" if shared_ok else "per-symbol"
+
     null_t = np.empty((n_worlds, len(syms) * n_win))
     for w in range(n_worlds):
-        col = 0
-        for sym, s in series.items():
-            r_sh = s.r.copy()
-            r_sh[1:] = s.r[1:][stationary_bootstrap_indices(len(s.r) - 1, 1.0, rng)]
-            pnl = pnl_matrix(np.cumsum(r_sh), *seg[sym])
-            _, t, _ = window_stats(pnl)
-            null_t[w, col : col + n_win] = t
-            col += n_win
+        if shared_ok:
+            masks = intraday_slot_null_masks(series, rng)
+            for i, sym in enumerate(syms):
+                null_t[w, i * n_win : (i + 1) * n_win] = _t_of(series[sym], seg[sym], masks[sym])
+        else:
+            col = 0
+            for sym, s in series.items():
+                r_sh = s.r.copy()
+                r_sh[1:] = s.r[1:][stationary_bootstrap_indices(len(s.r) - 1, 1.0, rng)]
+                pnl = pnl_matrix(np.cumsum(r_sh), *seg[sym])
+                _, t, _ = window_stats(pnl)
+                null_t[w, col : col + n_win] = t
+                col += n_win
 
     edge_bp = np.concatenate([real_mean[sym] for sym in syms]) * 1e4
     t_real = np.concatenate([real_t[sym] for sym in syms])
@@ -193,10 +286,15 @@ def run_sweep(
     per_candidate_pct[~np.isfinite(abs_real)] = np.nan
 
     # Sector-level test: for each window, the cross-sectional mean t (equal-weight basket),
-    # calibrated against the same statistic computed inside every permutation world. For
-    # correlated universes (103 equities) this is the evidence form that has power.
+    # calibrated against the same statistic computed inside every null world. The worlds
+    # must share one day/slot index across symbols (null_kind), otherwise the real t's —
+    # correlated through the market factor — face independent null t's and the pooled z
+    # is significant on pure noise.
     sector = {}
+    sector_null_z = []
+    sector_real_z = []
     if len(syms) > 1:
+        null_grid = null_t.reshape(n_worlds, len(syms), n_win)
         for wi, (h, d) in enumerate(windows):
             reals = np.array([real_t[sym][wi] for sym in syms])
             reals = reals[np.isfinite(reals)]
@@ -205,7 +303,7 @@ def run_sweep(
             real_z = float(reals.mean() / (reals.std(ddof=1) / np.sqrt(len(reals))))
             null_z = np.empty(n_worlds)
             for w in range(n_worlds):
-                vals = null_t[w].reshape(len(syms), n_win)[:, wi]
+                vals = null_grid[w, :, wi]
                 vals = vals[np.isfinite(vals)]
                 null_z[w] = vals.mean() / (vals.std(ddof=1) / np.sqrt(len(vals)))
             sector[f"{h:02d}+{d}h"] = {
@@ -213,7 +311,27 @@ def run_sweep(
                 "null_z_p95": float(np.percentile(np.abs(null_z), 95)),
                 "percentile": float((np.abs(null_z) < abs(real_z)).mean()),
                 "n_symbols": int(len(reals)),
+                "null_kind": null_kind,
             }
+            sector_null_z.append(np.abs(null_z))
+            sector_real_z.append(abs(real_z))
+
+    # The scan's headline is its most extreme window, so the null it must clear is the
+    # same maximum computed inside each world. A per-window p95 is the wrong reference
+    # for the best window: scanning ~20 correlated windows against ~20 marginal 95th
+    # percentiles rejects a correct null roughly half the time (measured 56% at N=25
+    # worlds vs 12% for the max-calibrated p95 below).
+    sector_family = {}
+    if sector_null_z:
+        null_max_z = np.column_stack(sector_null_z).max(axis=1)  # per world
+        real_max_z = float(np.max(sector_real_z))
+        sector_family = {
+            "real_max_abs_z": real_max_z,
+            "null_max_abs_z_mean": float(null_max_z.mean()),
+            "null_max_abs_z_p95": float(np.percentile(null_max_z, 95)),
+            "percentile": float((null_max_z < real_max_z).mean()),
+            "n_windows": int(len(sector_null_z)),
+        }
 
     # Half-sample split (by day) for the top candidates later
     half_t, half_edge = {}, {}
@@ -285,6 +403,7 @@ def run_sweep(
             "family_max_max": float(null_max.max()),
             "analytic_expected_max": float(floor),
         },
+        "null_kind": null_kind,
         "family": {
             "real_max_abs_t": real_max,
             "percentile": percentile,
@@ -294,6 +413,7 @@ def run_sweep(
         "candidates": rows,
         "replication": replication,
         "sector": sector,
+        "sector_family": sector_family,
     }
 
 
@@ -379,7 +499,8 @@ def main() -> None:
                 "net_spread_edge_bp": None if row["net_spread_edge_bp"] is None else round(row["net_spread_edge_bp"], 5),
                 "net_spread_t": None if row["net_spread_t"] is None else round(row["net_spread_t"], 3),
             },
-            {"null": {"mean_block": 1.0, "worlds": args.worlds}, "source": args.source,
+            {"null": {"mean_block": 1.0, "worlds": args.worlds, "kind": result["null_kind"]},
+             "source": args.source, "symbols": len(series),
              "spread": "adopted per symbol (tape 2026-10-05)"},
         )
 
@@ -388,7 +509,7 @@ def main() -> None:
 
     c = result["config"]
     print(f"family {c['family']}: {c['candidates']} candidates, {c['windows']} windows x {len(c['symbols'])} symbols")
-    print(f"\nnull (permutation, {c['worlds']} worlds): family max |t| mean {result['null']['family_max_mean']:.2f}"
+    print(f"\nnull ({result['null_kind']}, {c['worlds']} worlds): family max |t| mean {result['null']['family_max_mean']:.2f}"
           f" | p95 {result['null']['family_max_p95']:.2f} | max {result['null']['family_max_max']:.2f}"
           f" | analytic {result['null']['analytic_expected_max']:.2f}")
     print(f"real family max |t| = {result['family']['real_max_abs_t']:.2f}"
@@ -416,7 +537,10 @@ def main() -> None:
                   f"  cost={row['avg_half_spread_cost_bp']:.3f}bp  gross_t={row['t']:+.2f}")
 
     if result["sector"]:
+        sf = result["sector_family"]
         print("\nsector-level test (cross-sectional mean t, calibrated inside the same null):")
+        print(f"  scan max |z| = {sf['real_max_abs_z']:.2f} vs null scan-max p95 {sf['null_max_abs_z_p95']:.2f}"
+              f" ({100 * sf['percentile']:.1f}% of worlds, {sf['n_windows']} windows)")
         for key, st in sorted(result["sector"].items(), key=lambda kv: -abs(kv[1]["real_z"]))[:6]:
             print(f"  {key:>7}  z={st['real_z']:+7.2f}  null p95={st['null_z_p95']:.2f}"
                   f"  percentile={100 * st['percentile']:5.1f}%  n={st['n_symbols']}")
