@@ -1,0 +1,605 @@
+{
+  "config": {
+    "symbols": [
+      "EURUSD",
+      "XAUUSD",
+      "XAGUSD",
+      "XTIUSD",
+      "XALUSD",
+      "XNGUSD",
+      "NAS100"
+    ],
+    "currencies": [
+      "USD",
+      "EUR",
+      "GBP"
+    ],
+    "horizons": [
+      15,
+      30,
+      60
+    ],
+    "impact": "High importance",
+    "perms": 200
+  },
+  "family": {
+    "candidates": 57,
+    "real_max_abs_incremental_bp": 26.5316,
+    "null_max_mean": 21.5557,
+    "null_max_p95": 34.1475,
+    "real_percentile": 0.805
+  },
+  "candidates": [
+    {
+      "symbol": "XAUUSD",
+      "currency": "USD",
+      "horizon": 60,
+      "n_events": 288,
+      "n_controls": 279,
+      "incremental_bp": 26.5316,
+      "t": 5.212,
+      "null_percentile": 0.805
+    },
+    {
+      "symbol": "XAGUSD",
+      "currency": "USD",
+      "horizon": 60,
+      "n_events": 288,
+      "n_controls": 279,
+      "incremental_bp": 22.5054,
+      "t": 2.509,
+      "null_percentile": 0.68
+    },
+    {
+      "symbol": "XAGUSD",
+      "currency": "USD",
+      "horizon": 30,
+      "n_events": 288,
+      "n_controls": 280,
+      "incremental_bp": 21.6934,
+      "t": 4.169,
+      "null_percentile": 0.615
+    },
+    {
+      "symbol": "XAUUSD",
+      "currency": "USD",
+      "horizon": 30,
+      "n_events": 288,
+      "n_controls": 280,
+      "incremental_bp": 16.6056,
+      "t": 5.306,
+      "null_percentile": 0.19
+    },
+    {
+      "symbol": "XALUSD",
+      "currency": "USD",
+      "horizon": 30,
+      "n_events": 278,
+      "n_controls": 271,
+      "incremental_bp": 8.1562,
+      "t": 3.106,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XALUSD",
+      "currency": "GBP",
+      "horizon": 60,
+      "n_events": 59,
+      "n_controls": 61,
+      "incremental_bp": 8.0858,
+      "t": 1.144,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XNGUSD",
+      "currency": "GBP",
+      "horizon": 30,
+      "n_events": 60,
+      "n_controls": 62,
+      "incremental_bp": 7.914,
+      "t": 0.689,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XNGUSD",
+      "currency": "GBP",
+      "horizon": 15,
+      "n_events": 60,
+      "n_controls": 62,
+      "incremental_bp": 6.565,
+      "t": 0.647,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XTIUSD",
+      "currency": "GBP",
+      "horizon": 15,
+      "n_events": 60,
+      "n_controls": 62,
+      "incremental_bp": 6.1375,
+      "t": 1.016,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XAUUSD",
+      "currency": "GBP",
+      "horizon": 60,
+      "n_events": 60,
+      "n_controls": 62,
+      "incremental_bp": 5.6755,
+      "t": 0.781,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "NAS100",
+      "currency": "USD",
+      "horizon": 60,
+      "n_events": 45,
+      "n_controls": 39,
+      "incremental_bp": 5.4531,
+      "t": 0.957,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XALUSD",
+      "currency": "USD",
+      "horizon": 15,
+      "n_events": 282,
+      "n_controls": 278,
+      "incremental_bp": 4.1375,
+      "t": 2.278,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XTIUSD",
+      "currency": "GBP",
+      "horizon": 30,
+      "n_events": 60,
+      "n_controls": 62,
+      "incremental_bp": 4.0168,
+      "t": 0.497,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "NAS100",
+      "currency": "USD",
+      "horizon": 30,
+      "n_events": 45,
+      "n_controls": 43,
+      "incremental_bp": 3.9047,
+      "t": 1.198,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XAUUSD",
+      "currency": "USD",
+      "horizon": 15,
+      "n_events": 288,
+      "n_controls": 281,
+      "incremental_bp": 2.8121,
+      "t": 1.199,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XAUUSD",
+      "currency": "GBP",
+      "horizon": 30,
+      "n_events": 60,
+      "n_controls": 62,
+      "incremental_bp": 2.8119,
+      "t": 0.638,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XAGUSD",
+      "currency": "GBP",
+      "horizon": 30,
+      "n_events": 60,
+      "n_controls": 62,
+      "incremental_bp": 2.7961,
+      "t": 0.25,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XALUSD",
+      "currency": "USD",
+      "horizon": 60,
+      "n_events": 268,
+      "n_controls": 260,
+      "incremental_bp": 2.6078,
+      "t": 0.664,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "EURUSD",
+      "currency": "USD",
+      "horizon": 60,
+      "n_events": 292,
+      "n_controls": 284,
+      "incremental_bp": 2.2486,
+      "t": 2.614,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "EURUSD",
+      "currency": "USD",
+      "horizon": 30,
+      "n_events": 292,
+      "n_controls": 284,
+      "incremental_bp": 1.9974,
+      "t": 3.543,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XNGUSD",
+      "currency": "GBP",
+      "horizon": 60,
+      "n_events": 60,
+      "n_controls": 62,
+      "incremental_bp": 1.8824,
+      "t": 0.156,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XALUSD",
+      "currency": "GBP",
+      "horizon": 30,
+      "n_events": 60,
+      "n_controls": 62,
+      "incremental_bp": 1.1596,
+      "t": 0.251,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XAUUSD",
+      "currency": "EUR",
+      "horizon": 30,
+      "n_events": 129,
+      "n_controls": 120,
+      "incremental_bp": 0.6743,
+      "t": 0.203,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XAUUSD",
+      "currency": "GBP",
+      "horizon": 15,
+      "n_events": 60,
+      "n_controls": 62,
+      "incremental_bp": 0.6179,
+      "t": 0.203,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "EURUSD",
+      "currency": "GBP",
+      "horizon": 15,
+      "n_events": 60,
+      "n_controls": 62,
+      "incremental_bp": 0.1305,
+      "t": 0.171,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "EURUSD",
+      "currency": "USD",
+      "horizon": 15,
+      "n_events": 292,
+      "n_controls": 284,
+      "incremental_bp": 0.0525,
+      "t": 0.126,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XAUUSD",
+      "currency": "EUR",
+      "horizon": 15,
+      "n_events": 129,
+      "n_controls": 120,
+      "incremental_bp": -0.1371,
+      "t": -0.079,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XALUSD",
+      "currency": "GBP",
+      "horizon": 15,
+      "n_events": 60,
+      "n_controls": 62,
+      "incremental_bp": -0.3353,
+      "t": -0.105,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XAGUSD",
+      "currency": "USD",
+      "horizon": 15,
+      "n_events": 288,
+      "n_controls": 281,
+      "incremental_bp": -0.3443,
+      "t": -0.078,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "EURUSD",
+      "currency": "GBP",
+      "horizon": 30,
+      "n_events": 60,
+      "n_controls": 62,
+      "incremental_bp": -0.6582,
+      "t": -0.704,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "EURUSD",
+      "currency": "GBP",
+      "horizon": 60,
+      "n_events": 60,
+      "n_controls": 62,
+      "incremental_bp": -0.7897,
+      "t": -0.624,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "EURUSD",
+      "currency": "EUR",
+      "horizon": 60,
+      "n_events": 129,
+      "n_controls": 119,
+      "incremental_bp": -0.9478,
+      "t": -0.976,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "EURUSD",
+      "currency": "EUR",
+      "horizon": 15,
+      "n_events": 129,
+      "n_controls": 120,
+      "incremental_bp": -1.1982,
+      "t": -2.518,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "EURUSD",
+      "currency": "EUR",
+      "horizon": 30,
+      "n_events": 129,
+      "n_controls": 120,
+      "incremental_bp": -1.3326,
+      "t": -1.778,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "NAS100",
+      "currency": "USD",
+      "horizon": 15,
+      "n_events": 45,
+      "n_controls": 43,
+      "incremental_bp": -1.4897,
+      "t": -0.658,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XTIUSD",
+      "currency": "USD",
+      "horizon": 30,
+      "n_events": 288,
+      "n_controls": 280,
+      "incremental_bp": -1.7032,
+      "t": -0.364,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XAUUSD",
+      "currency": "EUR",
+      "horizon": 60,
+      "n_events": 127,
+      "n_controls": 117,
+      "incremental_bp": -1.7878,
+      "t": -0.42,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XTIUSD",
+      "currency": "EUR",
+      "horizon": 60,
+      "n_events": 127,
+      "n_controls": 117,
+      "incremental_bp": -2.0353,
+      "t": -0.272,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XALUSD",
+      "currency": "EUR",
+      "horizon": 15,
+      "n_events": 121,
+      "n_controls": 112,
+      "incremental_bp": -2.4515,
+      "t": -0.874,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XAGUSD",
+      "currency": "GBP",
+      "horizon": 60,
+      "n_events": 60,
+      "n_controls": 62,
+      "incremental_bp": -2.6392,
+      "t": -0.149,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XTIUSD",
+      "currency": "USD",
+      "horizon": 15,
+      "n_events": 288,
+      "n_controls": 281,
+      "incremental_bp": -3.7023,
+      "t": -0.98,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XTIUSD",
+      "currency": "GBP",
+      "horizon": 60,
+      "n_events": 60,
+      "n_controls": 62,
+      "incremental_bp": -4.271,
+      "t": -0.406,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XAGUSD",
+      "currency": "EUR",
+      "horizon": 15,
+      "n_events": 129,
+      "n_controls": 120,
+      "incremental_bp": -4.2906,
+      "t": -0.992,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XALUSD",
+      "currency": "EUR",
+      "horizon": 30,
+      "n_events": 121,
+      "n_controls": 112,
+      "incremental_bp": -5.0114,
+      "t": -1.222,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XAGUSD",
+      "currency": "GBP",
+      "horizon": 15,
+      "n_events": 60,
+      "n_controls": 62,
+      "incremental_bp": -5.1084,
+      "t": -0.673,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XALUSD",
+      "currency": "EUR",
+      "horizon": 60,
+      "n_events": 119,
+      "n_controls": 110,
+      "incremental_bp": -6.3093,
+      "t": -1.278,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XTIUSD",
+      "currency": "USD",
+      "horizon": 60,
+      "n_events": 288,
+      "n_controls": 279,
+      "incremental_bp": -9.067,
+      "t": -1.468,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XTIUSD",
+      "currency": "EUR",
+      "horizon": 15,
+      "n_events": 129,
+      "n_controls": 120,
+      "incremental_bp": -10.0465,
+      "t": -2.351,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XNGUSD",
+      "currency": "EUR",
+      "horizon": 60,
+      "n_events": 127,
+      "n_controls": 117,
+      "incremental_bp": -11.1476,
+      "t": -1.193,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XNGUSD",
+      "currency": "USD",
+      "horizon": 30,
+      "n_events": 288,
+      "n_controls": 280,
+      "incremental_bp": -11.6429,
+      "t": -2.441,
+      "null_percentile": 0.0
+    },
+    {
+      "symbol": "XNGUSD",
+      "currency": "EUR",
+      "horizon": 15,
+      "n_events": 129,
+      "n_controls": 120,
+      "incremental_bp": -12.3818,
+      "t": -2.948,
+      "null_percentile": 0.005
+    },
+    {
+      "symbol": "XAGUSD",
+      "currency": "EUR",
+      "horizon": 30,
+      "n_events": 129,
+      "n_controls": 120,
+      "incremental_bp": -14.1992,
+      "t": -1.953,
+      "null_percentile": 0.05
+    },
+    {
+      "symbol": "XTIUSD",
+      "currency": "EUR",
+      "horizon": 30,
+      "n_events": 129,
+      "n_controls": 120,
+      "incremental_bp": -14.8782,
+      "t": -2.824,
+      "null_percentile": 0.085
+    },
+    {
+      "symbol": "XNGUSD",
+      "currency": "USD",
+      "horizon": 15,
+      "n_events": 288,
+      "n_controls": 281,
+      "incremental_bp": -19.5172,
+      "t": -5.377,
+      "null_percentile": 0.46
+    },
+    {
+      "symbol": "XNGUSD",
+      "currency": "USD",
+      "horizon": 60,
+      "n_events": 288,
+      "n_controls": 279,
+      "incremental_bp": -19.8126,
+      "t": -2.908,
+      "null_percentile": 0.48
+    },
+    {
+      "symbol": "XAGUSD",
+      "currency": "EUR",
+      "horizon": 60,
+      "n_events": 127,
+      "n_controls": 117,
+      "incremental_bp": -21.0991,
+      "t": -2.458,
+      "null_percentile": 0.57
+    },
+    {
+      "symbol": "XNGUSD",
+      "currency": "EUR",
+      "horizon": 30,
+      "n_events": 129,
+      "n_controls": 120,
+      "incremental_bp": -23.736,
+      "t": -3.68,
+      "null_percentile": 0.72
+    }
+  ],
+  "robust_note": "Mean-based incrementals are outlier-dominated: the gold control mean is -22.4bp while its median is -0.41bp, so the +26bp family max is tail-driven artifact. Median-based incrementals are the trustworthy read: XAUUSD +5.7bp (30m) and +5.6bp (60m), XAGUSD +10.8bp (30m), EURUSD +0.8bp. Silver's 60m row flips sign, so horizon stability is unresolved."
+}

@@ -425,6 +425,25 @@ was cost-consumed; FX/metals show the same shape at a third the magnitude and ar
 cost-consumed. The pattern is consistent: microstructure effects at these horizons are real,
 small, and priced.
 
+## Event-driven study (calendar-triggered)
+
+Design note — the null that matters here: comparing event windows against the **same clock
+time on days with no event for that currency**. The intraday drift measured earlier is
+therefore inside the null, and only event-specific behaviour counts as signal.
+
+First result (EURUSD, high-impact USD events, +30 min, ~9 months):
+
+| | mean | t |
+|---|---|---|
+| event windows (n=292) | +0.16 bp | +0.36 |
+| clock-time controls (n=284) | −1.84 bp | −5.13 |
+| **incremental** | **+2.0 bp** | — |
+
+Reads as: the event hour is ~2 bp *less negative* than the same hour on quiet days — a real
+incremental effect sitting on top of a strongly negative baseline hour. +2.0 bp is near
+EURUSD's cost (zero spread + commission), so this is a lead, not a candidate: the standard
+barriers apply — more symbols, cross-instrument replication, and the measured spread.
+
 ## Design rules this repo encodes
 
 1. **Audit before modelling.** Anything derived (features, labels, regimes) inherits
