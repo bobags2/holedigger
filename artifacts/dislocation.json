@@ -1,0 +1,220 @@
+{
+  "config": {
+    "symbols": [
+      "XAUUSD",
+      "XCUUSD"
+    ],
+    "quantile": 0.99,
+    "horizons": [
+      15,
+      30,
+      60
+    ],
+    "perms": 200,
+    "direction": "counter-trend (fade)",
+    "estimator": "median",
+    "min_gap_min": 10
+  },
+  "family": {
+    "candidates": 6,
+    "real_max_abs_incremental_bp": 7.041,
+    "null_max_mean": 2.873,
+    "null_max_p95": 5.159,
+    "real_percentile": 1.0
+  },
+  "candidates": [
+    {
+      "symbol": "XAUUSD",
+      "quantile": 0.99,
+      "horizon": 60,
+      "event_median_bp": -8.94050503001299,
+      "control_median_bp": -1.8998539544428248,
+      "median_incremental_bp": -7.041,
+      "trimmed_incremental_bp": -1.176,
+      "spread_median_bp": 0.185,
+      "net_of_spread_bp": -9.125,
+      "null_percentile": 1.0,
+      "event_dist": {
+        "n": 567,
+        "mean": -0.843,
+        "median": -8.941,
+        "p10": -106.941,
+        "p25": -48.737,
+        "p75": 42.077,
+        "p90": 119.868,
+        "hit_rate": 0.443
+      },
+      "control_dist": {
+        "n": 563,
+        "mean": -2.358,
+        "median": -1.9,
+        "p10": -33.214,
+        "p25": -16.356,
+        "p75": 11.082,
+        "p90": 23.119,
+        "hit_rate": 0.462
+      }
+    },
+    {
+      "symbol": "XAUUSD",
+      "quantile": 0.99,
+      "horizon": 30,
+      "event_median_bp": -5.0499696004780485,
+      "control_median_bp": -0.9721945453587015,
+      "median_incremental_bp": -4.078,
+      "trimmed_incremental_bp": -3.312,
+      "spread_median_bp": 0.191,
+      "net_of_spread_bp": -5.241,
+      "null_percentile": 0.83,
+      "event_dist": {
+        "n": 570,
+        "mean": -2.71,
+        "median": -5.05,
+        "p10": -80.531,
+        "p25": -41.884,
+        "p75": 29.948,
+        "p90": 76.987,
+        "hit_rate": 0.451
+      },
+      "control_dist": {
+        "n": 566,
+        "mean": -1.125,
+        "median": -0.972,
+        "p10": -23.043,
+        "p25": -12.48,
+        "p75": 8.995,
+        "p90": 20.973,
+        "hit_rate": 0.458
+      }
+    },
+    {
+      "symbol": "XAUUSD",
+      "quantile": 0.99,
+      "horizon": 15,
+      "event_median_bp": -4.762672643885154,
+      "control_median_bp": -0.8973420733830986,
+      "median_incremental_bp": -3.865,
+      "trimmed_incremental_bp": -2.186,
+      "spread_median_bp": 0.199,
+      "net_of_spread_bp": -4.961,
+      "null_percentile": 0.815,
+      "event_dist": {
+        "n": 573,
+        "mean": -0.818,
+        "median": -4.763,
+        "p10": -59.604,
+        "p25": -29.43,
+        "p75": 24.067,
+        "p90": 58.463,
+        "hit_rate": 0.459
+      },
+      "control_dist": {
+        "n": 569,
+        "mean": -0.371,
+        "median": -0.897,
+        "p10": -17.075,
+        "p25": -7.649,
+        "p75": 6.071,
+        "p90": 16.157,
+        "hit_rate": 0.459
+      }
+    },
+    {
+      "symbol": "XCUUSD",
+      "quantile": 0.99,
+      "horizon": 60,
+      "event_median_bp": -4.172672847128422,
+      "control_median_bp": -1.7474836087084304,
+      "median_incremental_bp": -2.425,
+      "trimmed_incremental_bp": 0.421,
+      "spread_median_bp": 5.432,
+      "net_of_spread_bp": -9.605,
+      "null_percentile": 0.385,
+      "event_dist": {
+        "n": 445,
+        "mean": 3.101,
+        "median": -4.173,
+        "p10": -69.296,
+        "p25": -31.49,
+        "p75": 32.493,
+        "p90": 75.228,
+        "hit_rate": 0.458
+      },
+      "control_dist": {
+        "n": 442,
+        "mean": 0.245,
+        "median": -1.747,
+        "p10": -26.001,
+        "p25": -14.164,
+        "p75": 14.795,
+        "p90": 26.765,
+        "hit_rate": 0.48
+      }
+    },
+    {
+      "symbol": "XCUUSD",
+      "quantile": 0.99,
+      "horizon": 30,
+      "event_median_bp": 0.4306600604809877,
+      "control_median_bp": -0.529889893022875,
+      "median_incremental_bp": 0.961,
+      "trimmed_incremental_bp": 0.669,
+      "spread_median_bp": 5.439,
+      "net_of_spread_bp": -5.008,
+      "null_percentile": 0.015,
+      "event_dist": {
+        "n": 450,
+        "mean": 2.514,
+        "median": 0.431,
+        "p10": -53.183,
+        "p25": -26.466,
+        "p75": 24.829,
+        "p90": 58.216,
+        "hit_rate": 0.509
+      },
+      "control_dist": {
+        "n": 450,
+        "mean": -0.197,
+        "median": -0.53,
+        "p10": -21.63,
+        "p25": -11.952,
+        "p75": 11.665,
+        "p90": 24.494,
+        "hit_rate": 0.484
+      }
+    },
+    {
+      "symbol": "XCUUSD",
+      "quantile": 0.99,
+      "horizon": 15,
+      "event_median_bp": 0.34126719698165175,
+      "control_median_bp": 0.9574684541409196,
+      "median_incremental_bp": -0.616,
+      "trimmed_incremental_bp": 1.593,
+      "spread_median_bp": 5.467,
+      "net_of_spread_bp": -5.126,
+      "null_percentile": 0.0,
+      "event_dist": {
+        "n": 451,
+        "mean": 2.754,
+        "median": 0.341,
+        "p10": -36.743,
+        "p25": -17.679,
+        "p75": 21.612,
+        "p90": 43.514,
+        "hit_rate": 0.506
+      },
+      "control_dist": {
+        "n": 451,
+        "mean": -0.324,
+        "median": 0.957,
+        "p10": -20.601,
+        "p25": -9.22,
+        "p75": 8.519,
+        "p90": 14.362,
+        "hit_rate": 0.53
+      }
+    }
+  ],
+  "verdict_note": "Gold headline (h=60): forward median -8.94bp vs control -1.90bp, incremental -7.04bp at the 100th percentile of the permutation null -- statistically the strongest result in the project, direction = momentum (trade with the dislocation). But split-sample kills it: half1 -14.36 vs half2 -7.06, and by year 2025 +12.58 vs 2026 -8.96 -- the sign flips. Same for h=15/h=30. Copper is null throughout (+0.96bp incremental at 30m against a 5.4bp spread). VERDICT: regime-bound artifact, not tradeable. Third family in a row to produce a headline result and then fail a time-split."
+}
