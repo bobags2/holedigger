@@ -1,236 +1,52 @@
 {
   "config": {
-    "entry_hour_utc": 18,
+    "entry_hour_utc": 3,
     "hold_hours": 2,
-    "symbols": 24,
+    "symbols": 1,
     "direction": "short"
   },
   "gross": {
-    "n_days": 139,
-    "mean_bp": 3.1541,
-    "median_bp": 0.8801,
-    "t": 1.85,
-    "sharpe_ann": 2.49,
-    "hit_rate": 0.525
+    "n_days": 242,
+    "mean_bp": 2.6393,
+    "median_bp": 0.0171,
+    "t": 1.29,
+    "sharpe_ann": 1.32,
+    "hit_rate": 0.5
   },
   "net_of_spread": {
-    "n_days": 139,
-    "mean_bp": -1.1786,
-    "median_bp": -2.9811,
-    "t": -0.7,
-    "sharpe_ann": -0.94,
-    "hit_rate": 0.367
+    "n_days": 242,
+    "mean_bp": -4.7512,
+    "median_bp": -5.7195,
+    "t": -2.3,
+    "sharpe_ann": -2.35,
+    "hit_rate": 0.397
   },
   "median_symbol": {
-    "gross_bp": 2.365,
-    "cost_bp": 4.659,
-    "net_bp": -1.539,
-    "share_profitable": 0.333
+    "gross_bp": 2.639,
+    "cost_bp": 7.391,
+    "net_bp": -4.751,
+    "share_profitable": 0.0
   },
   "per_symbol": [
     {
-      "symbol": "NVIDIA",
-      "gross_bp": 12.527,
-      "gross_t": 2.22,
-      "cost_bp": 3.859,
-      "net_bp": 8.668,
-      "net_t": 1.54
-    },
-    {
-      "symbol": "MicronTechnology",
-      "gross_bp": 12.505,
-      "gross_t": 0.91,
-      "cost_bp": 5.249,
-      "net_bp": 7.256,
-      "net_t": 0.53
-    },
-    {
-      "symbol": "Booking",
-      "gross_bp": 10.788,
-      "gross_t": 1.78,
-      "cost_bp": 5.334,
-      "net_bp": 5.455,
-      "net_t": 0.9
-    },
-    {
-      "symbol": "McDonalds",
-      "gross_bp": 7.713,
-      "gross_t": 2.24,
-      "cost_bp": 4.829,
-      "net_bp": 2.884,
-      "net_t": 0.83
-    },
-    {
-      "symbol": "Broadcom",
-      "gross_bp": 7.23,
-      "gross_t": 1.07,
-      "cost_bp": 4.368,
-      "net_bp": 2.862,
-      "net_t": 0.42
-    },
-    {
-      "symbol": "Amazon",
-      "gross_bp": 6.523,
-      "gross_t": 1.26,
-      "cost_bp": 4.692,
-      "net_bp": 1.831,
-      "net_t": 0.36
-    },
-    {
-      "symbol": "Visa",
-      "gross_bp": 5.172,
-      "gross_t": 1.41,
-      "cost_bp": 4.443,
-      "net_bp": 0.728,
-      "net_t": 0.2
-    },
-    {
-      "symbol": "Alphabet-A",
-      "gross_bp": 2.178,
-      "gross_t": 0.79,
-      "cost_bp": 1.479,
-      "net_bp": 0.699,
-      "net_t": 0.25
-    },
-    {
-      "symbol": "TSMC",
-      "gross_bp": 3.864,
-      "gross_t": 0.67,
-      "cost_bp": 4.163,
-      "net_bp": -0.3,
-      "net_t": -0.05
-    },
-    {
-      "symbol": "Microsoft",
-      "gross_bp": 3.685,
-      "gross_t": 0.77,
-      "cost_bp": 4.626,
-      "net_bp": -0.941,
-      "net_t": -0.2
-    },
-    {
-      "symbol": "ElectronicArts",
-      "gross_bp": 1.169,
-      "gross_t": 1.28,
-      "cost_bp": 2.478,
-      "net_bp": -1.309,
-      "net_t": -1.44
-    },
-    {
-      "symbol": "UnitedHealth",
-      "gross_bp": 3.707,
-      "gross_t": 0.71,
-      "cost_bp": 5.133,
-      "net_bp": -1.426,
-      "net_t": -0.27
-    },
-    {
-      "symbol": "Alphabet-C",
-      "gross_bp": 0.02,
-      "gross_t": 0.01,
-      "cost_bp": 1.672,
-      "net_bp": -1.653,
-      "net_t": -0.59
-    },
-    {
-      "symbol": "AmericanExpress",
-      "gross_bp": 2.662,
-      "gross_t": 0.73,
-      "cost_bp": 5.222,
-      "net_bp": -2.56,
-      "net_t": -0.7
-    },
-    {
-      "symbol": "Berkshire",
-      "gross_bp": 0.703,
-      "gross_t": 0.24,
-      "cost_bp": 3.803,
-      "net_bp": -3.101,
-      "net_t": -1.05
-    },
-    {
-      "symbol": "Chevron",
-      "gross_bp": 1.275,
-      "gross_t": 0.35,
-      "cost_bp": 4.444,
-      "net_bp": -3.169,
-      "net_t": -0.86
-    },
-    {
-      "symbol": "JPMorganChase",
-      "gross_bp": 0.458,
-      "gross_t": 0.12,
-      "cost_bp": 4.021,
-      "net_bp": -3.563,
-      "net_t": -0.95
-    },
-    {
-      "symbol": "Mastercard",
-      "gross_bp": 2.551,
-      "gross_t": 0.71,
-      "cost_bp": 6.299,
-      "net_bp": -3.748,
-      "net_t": -1.04
-    },
-    {
-      "symbol": "Apple",
-      "gross_bp": -2.817,
-      "gross_t": -0.9,
-      "cost_bp": 1.773,
-      "net_bp": -4.589,
-      "net_t": -1.47
-    },
-    {
-      "symbol": "Procter&Gamble",
-      "gross_bp": 0.424,
-      "gross_t": 0.13,
-      "cost_bp": 5.173,
-      "net_bp": -4.749,
-      "net_t": -1.41
-    },
-    {
-      "symbol": "HomeDepot",
-      "gross_bp": -0.04,
-      "gross_t": -0.01,
-      "cost_bp": 5.066,
-      "net_bp": -5.106,
-      "net_t": -1.23
-    },
-    {
-      "symbol": "ExxonMobil",
-      "gross_bp": -1.489,
-      "gross_t": -0.39,
-      "cost_bp": 5.002,
-      "net_bp": -6.491,
-      "net_t": -1.7
-    },
-    {
-      "symbol": "CostcoWholesale",
-      "gross_bp": -1.548,
-      "gross_t": -0.46,
-      "cost_bp": 5.56,
-      "net_bp": -7.108,
-      "net_t": -2.12
-    },
-    {
-      "symbol": "Johnson&Johnson",
-      "gross_bp": -3.563,
-      "gross_t": -1.01,
-      "cost_bp": 5.296,
-      "net_bp": -8.859,
-      "net_t": -2.51
+      "symbol": "XCUUSD",
+      "gross_bp": 2.639,
+      "gross_t": 1.29,
+      "cost_bp": 7.391,
+      "net_bp": -4.751,
+      "net_t": -2.3
     }
   ],
   "series_tail": {
-    "2026-10-22": -8.627,
-    "2026-10-23": 1.613,
-    "2026-10-26": -9.936,
-    "2026-10-27": -1.482,
-    "2026-10-28": -10.781,
-    "2026-10-29": -33.49,
-    "2026-10-30": -11.636,
-    "2026-11-02": 43.49,
-    "2026-11-03": -4.939,
-    "2026-11-04": 3.961
+    "2026-10-22": 47.328,
+    "2026-10-23": -12.713,
+    "2026-10-26": -19.133,
+    "2026-10-27": -9.526,
+    "2026-10-28": -4.945,
+    "2026-10-29": -5.702,
+    "2026-10-30": -2.823,
+    "2026-11-02": -42.572,
+    "2026-11-03": 49.179,
+    "2026-11-04": -135.097
   }
 }

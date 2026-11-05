@@ -395,6 +395,36 @@ almost exactly: the cheap basket nets to zero, the broad basket loses. Only a po
 handful clear (NVIDIA +8.7, Micron +7.3, Booking +5.5 bp/trade net) — and selecting names
 after seeing the P&L is not evidence, so that stays a lead rather than a candidate.
 
+## Clock verification and the FX/metals re-run
+
+Clock: the cTrader feed's UTC labels are **true UTC**, established two independent ways —
+MT5 equity bars land at exactly 13:30 UTC after subtracting the 3h terminal offset (the US
+cash open is an external reference), and cross-source the MT5 series aligns to the cTrader
+series at exactly a −3h shift. The ingest now normalizes MT5 to UTC, so both sources
+share one clock and every window label means what it says.
+
+Sector-level re-run on the FX/metals universe (10 instruments, UTC clock, 200 worlds):
+
+| window | sector z | null p95 | percentile |
+|---|---|---|---|
+| 17:00 +1h | −3.22 | 2.13 | 98.5% |
+| 13:00 +1h | −2.97 | 2.21 | 99.0% |
+| 02:00 +1h | −2.87 | 2.00 | 99.0% |
+| 12:00 +2h | −2.39 | 2.09 | 98.0% |
+
+Priced as portfolios (`scripts/sector_test.py`):
+
+- 17+1h on the five cheapest (EURUSD, XAU, XAG, XCU, XTI): gross **+1.46 bp/day**, cost 4.3 →
+  net **−2.26 bp/day**; halves +2.14/+0.69 gross (decaying), net −2.3/−2.3.
+- **Copper 03:00+2h UTC** (the cTrader finding): gross **+2.64 bp**, decaying across halves
+  (+4.11 → +1.34), cost **7.39** → net **−4.75 bp/trade**, both halves strongly negative.
+  So the clock was not the failure — the spread was, and the gross edge itself was fading.
+
+Verdict across all three universes: equities showed the largest real effect (z = −6.07) and it
+was cost-consumed; FX/metals show the same shape at a third the magnitude and are also
+cost-consumed. The pattern is consistent: microstructure effects at these horizons are real,
+small, and priced.
+
 ## Design rules this repo encodes
 
 1. **Audit before modelling.** Anything derived (features, labels, regimes) inherits
