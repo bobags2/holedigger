@@ -365,6 +365,36 @@ remains valid and conservative (per-symbol permutation gives independence the re
 does not have), but a "survivor" in 6,555 candidates means little, and the mechanism-first
 discipline matters more here than anywhere.
 
+## Equities run (105 MT5 Technology names)
+
+Full universe, 200-day window, tick-derived mid bars. 5.4M bars; history varies by name
+(most have ~198 days; Apple's ticks start only 2026-06-29; Palantir/SpaceX ~145).
+
+**Cost map** (`scripts/mt5_audit --mt5-done`): every name's spread declines through the
+session — e.g. Accenture 14.7 bp at 14:00 UTC → 7.8 bp at 19:00 — and the universe splits
+~10× in cost, from Berkshire 3.2 / Visa 3.4 / Alphabet-A 3.5 bp to NIO 105 / Snapchat 90 /
+Lucid 92 bp at the wide end. Overnight gaps median 0.5–1.8% are the noise floor.
+
+**The finding** (sector-level test, calibrated inside the same permutation null): the
+18:00→20:00 UTC window (13:00–15:00 ET) drifts down sector-wide — z = **−6.07 vs null p95
+2.64, 100th percentile, n = 105**. The same shape appears in the overlapping 16:00–20:00
+window (z = −5.53). This is the first candidate in the project to clear a family null
+decisively.
+
+**The cost verdict** (`scripts/sector_test.py` — per-day, per-name, spread measured at the
+trade's own bars, then an equal-weight portfolio):
+
+| basket | gross bp/day | spread cost | net bp/day | net t |
+|---|---|---|---|---|
+| all 105 | +3.35 | 11.8 | −8.46 | −3.74 |
+| cheapest 24 (ex-ante, by measured spread) | +3.15 | 4.66 | −1.18 | −0.70 |
+| cheap-24, first half / second half | +4.0 / +3.7 | — | −0.36 / −0.66 | ≈ −0.2 |
+
+So the effect is real and stable across halves, and the cost of executing it consumes it
+almost exactly: the cheap basket nets to zero, the broad basket loses. Only a post-hoc
+handful clear (NVIDIA +8.7, Micron +7.3, Booking +5.5 bp/trade net) — and selecting names
+after seeing the P&L is not evidence, so that stays a lead rather than a candidate.
+
 ## Design rules this repo encodes
 
 1. **Audit before modelling.** Anything derived (features, labels, regimes) inherits

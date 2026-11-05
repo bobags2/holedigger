@@ -192,6 +192,29 @@ def run_sweep(
     per_candidate_pct = (abs_null < abs_real[None, :]).mean(axis=0)
     per_candidate_pct[~np.isfinite(abs_real)] = np.nan
 
+    # Sector-level test: for each window, the cross-sectional mean t (equal-weight basket),
+    # calibrated against the same statistic computed inside every permutation world. For
+    # correlated universes (103 equities) this is the evidence form that has power.
+    sector = {}
+    if len(syms) > 1:
+        for wi, (h, d) in enumerate(windows):
+            reals = np.array([real_t[sym][wi] for sym in syms])
+            reals = reals[np.isfinite(reals)]
+            if len(reals) < 10:
+                continue
+            real_z = float(reals.mean() / (reals.std(ddof=1) / np.sqrt(len(reals))))
+            null_z = np.empty(n_worlds)
+            for w in range(n_worlds):
+                vals = null_t[w].reshape(len(syms), n_win)[:, wi]
+                vals = vals[np.isfinite(vals)]
+                null_z[w] = vals.mean() / (vals.std(ddof=1) / np.sqrt(len(vals)))
+            sector[f"{h:02d}+{d}h"] = {
+                "real_z": real_z,
+                "null_z_p95": float(np.percentile(np.abs(null_z), 95)),
+                "percentile": float((np.abs(null_z) < abs(real_z)).mean()),
+                "n_symbols": int(len(reals)),
+            }
+
     # Half-sample split (by day) for the top candidates later
     half_t, half_edge = {}, {}
     for sym, s in series.items():
@@ -270,12 +293,14 @@ def run_sweep(
         },
         "candidates": rows,
         "replication": replication,
+        "sector": sector,
     }
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--symbols", nargs="+", default=config.SYMBOLS)
+    ap.add_argument("--symbols-file", default=None, help="path to a newline-separated symbol list")
     ap.add_argument("--mt5-done", action="store_true",
                     help="run on every symbol whose MT5 ingest state is complete")
     ap.add_argument("--worlds", type=int, default=200)
@@ -285,16 +310,35 @@ def main() -> None:
     args = ap.parse_args()
 
     config.ensure_dirs()
+    if args.symbols_file:
+        args.symbols = [
+            line.strip()
+            for line in Path(args.symbols_file).read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
     if args.mt5_done:
-        done = []
+        done, empty = [], []
         for p in sorted(config.DATA_DIR.glob("mt5_state_*.json")):
             state = json.loads(p.read_text(encoding="utf-8"))
-            if state.get("done"):
-                done.append(state["symbol"])
+            if not state.get("done") or state.get("bars", 0) < 5000:
+                continue
+            # coverage from the parquet itself: a done state with a short span is a stale pull
+            pq = config.PARQUET_DIR / f"{state['symbol']}_MT5_M1.parquet"
+            ok = False
+            if pq.exists():
+                try:
+                    ts = pd.read_parquet(pq, columns=["ts"])["ts"]
+                    have = (ts.iloc[-1] - ts.iloc[0]).days
+                    want = (pd.Timestamp(state["until"]) - pd.Timestamp(state["start"])).days
+                    ok = have >= 0.8 * want
+                except (KeyError, ValueError, FileNotFoundError):
+                    ok = False
+            (done if ok else empty).append(state["symbol"])
         if not done:
             raise SystemExit("no completed MT5 symbols; run src.mt5_ingest first")
         args.symbols = done
-        print(f"running on {len(done)} completed MT5 symbols")
+        print(f"running on {len(done)} completed MT5 symbols"
+              + (f" (skipped {len(empty)} with no data: {', '.join(empty)})" if empty else ""))
     windows = default_windows()
     build = build_mt5_series if args.source == "mt5" else build_series
     series = {sym: build(sym) for sym in args.symbols}
@@ -370,6 +414,12 @@ def main() -> None:
             print(f"  {row['symbol']:>7} {row['entry_hour_utc']:02d}+{row['hold_hours']}h"
                   f"  net={row['net_spread_edge_bp']:+.3f}bp  t={row['net_spread_t']:+6.2f}"
                   f"  cost={row['avg_half_spread_cost_bp']:.3f}bp  gross_t={row['t']:+.2f}")
+
+    if result["sector"]:
+        print("\nsector-level test (cross-sectional mean t, calibrated inside the same null):")
+        for key, st in sorted(result["sector"].items(), key=lambda kv: -abs(kv[1]["real_z"]))[:6]:
+            print(f"  {key:>7}  z={st['real_z']:+7.2f}  null p95={st['null_z_p95']:.2f}"
+                  f"  percentile={100 * st['percentile']:5.1f}%  n={st['n_symbols']}")
 
     print("\nreplication of top windows across symbols (t-stat):")
     for key, per_sym in result["replication"].items():

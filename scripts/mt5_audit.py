@@ -74,10 +74,17 @@ def audit_symbol(sym: str, hours: list[int]) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--symbols", nargs="+", default=None)
+    ap.add_argument("--symbols-file", default=None, help="path to a newline-separated symbol list")
     ap.add_argument("--mt5-done", action="store_true", help="audit every symbol whose MT5 state is complete")
     ap.add_argument("--hours", nargs="+", type=int, default=[3, 5, 6, 7, 8, 15, 16])
     ap.add_argument("--out", type=Path, default=config.ARTIFACTS_DIR / "mt5_audit.json")
     args = ap.parse_args()
+    if args.symbols_file:
+        args.symbols = [
+            line.strip()
+            for line in Path(args.symbols_file).read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
     if args.mt5_done:
         args.symbols = [
             json.loads(p.read_text(encoding="utf-8"))["symbol"]

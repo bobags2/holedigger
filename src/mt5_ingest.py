@@ -118,8 +118,9 @@ def _load_state(symbol: str, default_from: datetime, until: datetime) -> dict:
     p = _state_path(symbol)
     if p.exists():
         state = json.loads(p.read_text(encoding="utf-8"))
-        # an extended window invalidates earlier coverage: drop it and start over
-        if state.get("start") and default_from.isoformat() < state["start"]:
+        # an extended (or unknown) window invalidates earlier coverage: start over
+        stale = not state.get("start") or default_from.isoformat() < state["start"]
+        if stale:
             p.unlink(missing_ok=True)
             _parquet_path(symbol).unlink(missing_ok=True)
         else:
