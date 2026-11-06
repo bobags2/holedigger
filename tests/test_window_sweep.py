@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from src import costs, gpu_null
+import src.window_sweep as ws
 from src.window_sweep import (
     _shared_day_grid_ok,
     default_windows,
@@ -430,6 +431,32 @@ def test_day_level_null_ignores_drift() -> None:
             planted, [(9, 4), (10, 2), (10, 4), (11, 4)], n_worlds=40, seed=3, null_kind=null_kind
         )
         assert res["family"]["percentile"] > 0.9, (null_kind, res["family"])
+
+
+def test_entry_tolerance_excludes_late_entry_days() -> None:
+    """A day whose entry bar is late must be excluded, not silently mis-measured.
+
+    Measured before this existed: with tolerance 0 the entry bar sat exactly on the cut for
+    EURUSD and gold, up to 7 minutes late for lead and up to 93 minutes late for oil. Those
+    days' P&L described a different window than the label claimed. The tolerance turns that
+    into an honest exclusion: valid-day counts can only fall, and the days that fall are
+    exactly the late ones.
+    """
+    for sym in ("XPBUSD", "XTIUSD"):
+        s = ws.build_mt5_series(sym)
+        a0, b0, v0 = ws.window_segments(s, [(12, 8)], tolerance_ns=0)
+        a1, b1, v1 = ws.window_segments(s, [(12, 8)])
+        assert int(v1.sum()) <= int(v0.sum()), (sym, int(v0.sum()), int(v1.sum()))
+        # every dropped day was genuinely late: recompute its lead and confirm
+        lead0 = (s.bar_time[a0] - np.unique(s.bar_day)[:, None] * 86_400 * 10**9) - 12 * 3600 * 10**9
+        dropped = ~v0[:, 0] | (lead0[:, 0] > ws.ENTRY_TOLERANCE_NS)
+        assert np.array_equal(v1[:, 0], v0[:, 0] & ~dropped), sym
+    # gold and EURUSD enter exactly on the cut, so nothing is dropped
+    for sym in ("XAUUSD", "EURUSD"):
+        s = ws.build_mt5_series(sym)
+        _, _, v0 = ws.window_segments(s, [(12, 8)], tolerance_ns=0)
+        _, _, v1 = ws.window_segments(s, [(12, 8)])
+        assert int(v1.sum()) == int(v0.sum()), sym
 
 
 def main() -> None:

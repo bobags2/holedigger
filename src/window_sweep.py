@@ -41,6 +41,11 @@ from .surrogates import stationary_bootstrap_indices
 
 HOLDS = [1, 2, 4, 8]
 MAX_EXIT_HOUR = 20  # UTC
+# A day whose first bar at/after the entry cut is later than this is excluded, not measured
+# over a shorter window. Measured before this existed: EURUSD/gold entered exactly on the
+# cut, lead up to 7 minutes late, oil up to 93 minutes late - each of those days' P&L
+# described a different trade than its label claimed.
+ENTRY_TOLERANCE_NS = 60 * 10**9
 
 
 @dataclass
@@ -87,9 +92,24 @@ def default_windows(holds: list[int] = HOLDS, max_exit: int = MAX_EXIT_HOUR) -> 
 
 
 def segments_from_times(
-    bar_time: np.ndarray, bar_day: np.ndarray, windows: list[tuple[int, int]]
+    bar_time: np.ndarray,
+    bar_day: np.ndarray,
+    windows: list[tuple[int, int]],
+    tolerance_ns: int = 0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """(a, b, valid): bar indices of entry/exit per (day, window). Invalid entries are junk."""
+    """(a, b, valid): bar indices of entry/exit per (day, window). Invalid entries are junk.
+
+    ``tolerance_ns`` is how far after the intended entry cut the entry bar may sit. The
+    default 0 keeps every behaviour this module ever had; with a tolerance, a day whose
+    first bar at/after the cut is later than ``tolerance_ns`` is marked invalid instead of
+    being measured as a shorter, differently-timed trade.
+
+    Why it matters, measured: with tolerance 0 the entry bar sits exactly on the cut for
+    EURUSD/gold, up to 7 minutes late for lead, and up to 93 minutes late for oil — those
+    days' P&L describe a different window than the label says, which is exactly the
+    "sparse or session-bounded symbols become differently sized trades" artefact. Passing
+    the tolerance turns silent mismeasurement into an honest exclusion.
+    """
     days = np.unique(bar_day)
     n_days, n_win = len(days), len(windows)
     a = np.zeros((n_days, n_win), dtype=np.int64)
@@ -102,14 +122,30 @@ def segments_from_times(
         times = bar_time[lo:hi] - days[i] * 86_400 * 10**9
         a[i] = lo + np.searchsorted(times, entry_cut, side="left")
         b[i] = lo + np.searchsorted(times, exit_cut, side="right") - 1
-    valid = (b > a) & (b - a >= 2)
     a = np.clip(a, 0, len(bar_time) - 1)
     b = np.clip(b, 0, len(bar_time) - 1)
+    if tolerance_ns:
+        # how far each day's entry bar sits past its intended cut: mark the late ones
+        # invalid instead of measuring a shorter, differently-timed trade. Pointing a at
+        # b gives (b > a) == False and (b - a >= 2) == False, so the day drops out cleanly -
+        # whereas a sentinel of 0 would create spurious (b > 0) "valid" days.
+        lead = (bar_time[a] - days[:, None] * 86_400 * 10**9) - entry_cut[None, :]
+        a = np.where(lead > tolerance_ns, b, a)
+    valid = (b > a) & (b - a >= 2)
     return a, b, valid
 
 
-def window_segments(s: Series, windows: list[tuple[int, int]]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    return segments_from_times(s.bar_time, s.bar_day, windows)
+def window_segments(
+    s: Series,
+    windows: list[tuple[int, int]],
+    tolerance_ns: int = ENTRY_TOLERANCE_NS,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Segments for a symbol's bar grid, with the entry tolerance applied.
+
+    ``ENTRY_TOLERANCE_NS`` is on by default: a day whose entry bar is later than one minute
+    past the intended cut is excluded rather than silently traded over a shorter window.
+    """
+    return segments_from_times(s.bar_time, s.bar_day, windows, tolerance_ns)
 
 
 def pnl_matrix(S: np.ndarray, a: np.ndarray, b: np.ndarray, valid: np.ndarray) -> np.ndarray:
@@ -283,12 +319,30 @@ def run_sweep(
                 continue
             gross = (S[x] - S[e]) * 1e4
             cost = (s.spread_bp[e] + s.spread_bp[x]) / 2.0
-            sgn = np.sign(gross.mean())  # trade the profitable direction
-            net = sgn * gross - cost
+            # Direction must be chosen out-of-sample. Picking sign(gross.mean()) on the
+            # whole sample and then quoting net/t on that same sample is upward-biased:
+            # the sign is the argmax of the very quantity being tested. So the direction
+            # is chosen on the FIRST half of the trading days and evaluated on the SECOND,
+            # and both are reported. "oos" is the honest number; "in_sample" is kept so the
+            # size of the bias is visible rather than assumed away.
+            days = s.bar_day[e]              # the trading day each realised trade belongs to
+            uniq = np.unique(days)
+            cut = uniq[len(uniq) // 2]
+            first, second = days <= cut, days > cut
+            sgn = np.sign(gross[first].mean()) if first.any() else 0.0
+            if sgn == 0.0 or not second.any():
+                sgn = np.sign(gross.mean())
+            net_oos = sgn * gross[second] - cost[second]
+            net_full = sgn * gross - cost
             net_by_key[(sym, h, d)] = {
-                "net_edge_bp": float(net.mean()),
-                "net_t": _tstat_of(net),
+                "net_edge_bp": float(net_full.mean()),
+                "net_t": _tstat_of(net_full),
                 "cost_bp": float(cost.mean()),
+                "oos_net_edge_bp": float(net_oos.mean()) if len(net_oos) else None,
+                "oos_net_t": _tstat_of(net_oos) if len(net_oos) > 4 else None,
+                "oos_n": int(len(second)),
+                "direction": float(sgn),
+                "in_sample_edge_bp": float((np.sign(gross.mean()) * gross - cost).mean()),
             }
 
     # One null world must keep the cross-section co-moving (shared day AND slot order) or
@@ -483,6 +537,14 @@ def run_sweep(
                 "net_spread_edge_bp": None if nb is None else nb["net_edge_bp"],
                 "net_spread_t": None if nb is None else nb["net_t"],
                 "avg_half_spread_cost_bp": None if nb is None else nb["cost_bp"],
+                # direction chosen on the first half, evaluated on the second: the honest
+                # out-of-sample counterpart to net_spread_*, plus the in-sample figure the
+                # old code quoted, so the size of the bias is visible in every artifact.
+                "oos_net_edge_bp": None if nb is None else nb["oos_net_edge_bp"],
+                "oos_net_t": None if nb is None else nb["oos_net_t"],
+                "oos_n": None if nb is None else nb["oos_n"],
+                "direction": None if nb is None else nb["direction"],
+                "in_sample_net_edge_bp": None if nb is None else nb["in_sample_edge_bp"],
                 "t_first_half": float(half_t[(sym, 0)][windows.index((h, d))]),
                 "t_second_half": float(half_t[(sym, 1)][windows.index((h, d))]),
             }
