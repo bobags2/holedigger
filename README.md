@@ -232,6 +232,8 @@ src/cost_model.py   learned spread/fill-cost predictor (GBDT on entry-time state
                     ex-ante entry filter, measured against the per-symbol median baseline
 src/pair_panel.py    maps the pair family's per-trade P&L onto a day axis so the pair
                     family's selection bias is priceable by the same reality checks
+src/pooled_panel.py  maps the dollar-pooled family's oriented basket onto a day axis, so its
+                    selection bias is priceable too
 src/reality_check.py White's Reality Check + Hansen's SPA on the shared panel: prices the
                     selection bias of the whole search, not one candidate's null
 src/oos_eval.py     the learned-strategy layer: purged walk-forward OOS P&L columns appended
@@ -265,7 +267,7 @@ python -m src.pooled_test --worlds 200   # pre-registered dollar-strength re-tes
 python -m src.pair_sweep --worlds 200    # family 3: pair dislocations (~2 min)
 python -m scripts.tape_analysis          # analyze newest ../ctrader/tape/*.csv
 
-python -m tests.test_cost_model; python -m tests.test_pair_panel; python -m tests.test_reality_check; python -m tests.test_oos_eval; python -m tests.test_window_sweep; python -m tests.test_mt5_clock
+python -m tests.test_cost_model; python -m tests.test_pooled_panel; python -m tests.test_pair_panel; python -m tests.test_reality_check; python -m tests.test_oos_eval; python -m tests.test_window_sweep; python -m tests.test_mt5_clock
 python -m tests.test_registry; python -m tests.test_surrogates; python -m tests.test_noise_floor; python -m tests.test_window_sweep; python -m tests.test_pooled; python -m tests.test_pair_sweep
 
 # live spread tape (run from ../ctrader; refresh the token first if stale):
@@ -646,15 +648,19 @@ it now is). Both run under `python -m scripts.event_test`.
    And the selection bias itself is now *priced*, not just counted: `src/reality_check.py`
    runs White's Reality Check (equal-weight portfolio over the whole family) and Hansen's
    SPA (best candidate, studentized, truncated) on the same days × candidates panel the
-   nulls price. Measured: **equities — White RC p = 0.767, SPA p = 1.0** (the whole
-   7,245-candidate search has no performance, which is the number the withdrawn z = −6.07
-   headline should have been quoted against); **pairs — White RC p = 0.466, SPA p = 0.761**
-   via `src/pair_panel.py`, which maps the pair family's per-trade P&L onto a day axis so
-   the same machinery can price it. Still unpriced: the dollar-pooled family (69
-   hypotheses), whose per-observation series lives in `pooled_test` and has no adapter yet —
-   and note the 8,649 "evaluated more than once" repeats are *within*-family (a hypothesis
-   is content-addressed from its own definition, so a re-run under a different null keeps
-   the same id), which is exactly the case the family panel already prices.
+   nulls price. **All three families are now priced, by the same code**:
+
+   | family | candidates | White RC | Hansen SPA | adapter |
+   |---|---|---|---|---|
+   | session_window_v1 | 7,245 | 0.767 | 1.0 | native (the sweep's own panel) |
+   | pair_reversion_v1 | 8 | 0.466 | 0.761 | `src/pair_panel.py` (per-trade → day axis) |
+   | dollar_pooled_v1 | 69 | 0.624 | 1.0 | `src/pooled_panel.py` (basket → day axis) |
+
+   Nothing anywhere. And note the 8,649 "evaluated more than once" repeats are
+   *within*-family — a hypothesis is content-addressed from its own definition, so a re-run
+   under a different null or clock keeps the same id — which is exactly the case a family
+   panel already prices. There is no cross-family aggregation left to build, because there
+   is no data model for one.
 4. Mask audited `anomalous_months` inside feature builders rather than dropping the series.
 5. Scale the null, not just the search: the sign-flip null's cost is one GEMM per chunk, so
    worlds are nearly free — use them for per-candidate adjusted p-values (step-down over the
