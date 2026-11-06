@@ -1,0 +1,23 @@
+{
+  "config": {
+    "symbols": 105,
+    "quintile": 0.2,
+    "legs_per_side": 21,
+    "worlds": 2000,
+    "seed": 20261004,
+    "session_utc": [
+      13,
+      20
+    ]
+  },
+  "n_sessions": 137,
+  "gross_bp_per_session": 19.00866,
+  "cost_bp_per_session": 42.98267,
+  "net_bp_per_session": -23.97401,
+  "gross_t": 1.922,
+  "net_t": -2.419,
+  "null_net_mean": -38.80658,
+  "null_net_p95": -30.87633,
+  "net_percentile": 0.998,
+  "hit_rate": 0.3942
+}
