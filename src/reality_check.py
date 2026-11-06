@@ -31,6 +31,7 @@ Usage::
 """
 from __future__ import annotations
 
+import warnings
 from typing import Callable
 
 import numpy as np
@@ -86,10 +87,10 @@ def reality_check(
     # candidates observed THAT day (a day with no observation carries no portfolio value,
     # so it must not be averaged as a zero)
     with np.errstate(invalid="ignore"):
-        with np.warnings.catch_warnings():
+        with warnings.catch_warnings():
             # a day with no observed candidate is expected (weekends, holidays); the NaN it
             # produces is handled by port_ok below, so the warning is noise
-            np.warnings.simplefilter("ignore", RuntimeWarning)
+            warnings.simplefilter("ignore", RuntimeWarning)
             row_mean = np.where(panel.valid, panel.pnl, np.nan)
             port_val = np.nanmean(row_mean, axis=1, keepdims=True)
     port_ok = np.isfinite(port_val)
