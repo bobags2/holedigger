@@ -177,7 +177,12 @@ def ingest_chunk(mt5: Mt5, symbol: str, start: datetime, until: datetime,
                 # true UTC now, so the file never holds two clocks at once
                 have["ts"] = mt5_clock.stored_to_utc(have["ts"])
             bars = pd.concat([have, bars], ignore_index=True).sort_values("ts").reset_index(drop=True)
-    bars.to_parquet(parquet, index=False)
+    # The clock is recorded in the parquet's OWN metadata, written in the same call as the
+    # rows. Recording it in the state file instead left a window where a crash between
+    # ``to_parquet`` and ``_save_state`` paired a true-UTC file with a legacy state tag, so
+    # the next resume shifted that file's winter bars a second time. Metadata travels with
+    # the rows, so the two cannot disagree.
+    mt5_clock.write_clock_tag_from_frame(bars, parquet)
     state["bars"] = int(len(bars))
 
     state.update({

@@ -36,8 +36,7 @@ def load_events() -> pd.DataFrame:
 
 
 def load_mid(symbol: str, timeframe: str = "5min") -> pd.DataFrame:
-    df = pd.read_parquet(config.PARQUET_DIR / f"{symbol}_MT5_M1.parquet")
-    df["ts"] = mt5_clock.stored_to_utc(df["ts"])  # parquet clock -> true UTC
+    df = mt5_clock.load_mt5_utc(config.PARQUET_DIR / f"{symbol}_MT5_M1.parquet")
     m = df.set_index("ts")["close"].resample(timeframe).last().dropna()
     return m.to_frame("close")
 

@@ -27,10 +27,9 @@ def audit_symbol(sym: str, hours: list[int]) -> dict:
     path = config.PARQUET_DIR / f"{sym}_MT5_M1.parquet"
     if not path.exists():
         return {"symbol": sym, "error": "missing parquet"}
-    df = pd.read_parquet(path)
+    df = mt5_clock.load_mt5_utc(path)  # reads the clock from the file's own metadata
     if not len(df):
         return {"symbol": sym, "error": "empty"}
-    df["ts"] = mt5_clock.stored_to_utc(df["ts"])  # parquet clock -> true UTC
     df["hour"] = df["ts"].dt.hour
     span_days = (df["ts"].iloc[-1] - df["ts"].iloc[0]).total_seconds() / 86400
     by_hour = df.groupby("hour").agg(

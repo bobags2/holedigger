@@ -373,6 +373,65 @@ def test_gpu_null_power() -> None:
         assert res["family"]["percentile"] > 0.9, (null_kind, res["family"])
 
 
+def make_drift_panel(bp_per_day, n_syms=3, n_days=250, seed=0, sigma=2e-4):
+    """iid noise + a uniform per-bar drift, no clock-slot structure of any kind."""
+    rng = np.random.default_rng(seed)
+    per_bar = bp_per_day / 288.0 * 1e-4
+    out = {}
+    base = np.datetime64("2000-01-03T00:00:00")
+    for k in range(n_syms):
+        r = rng.standard_normal((n_days, 288)) * sigma + per_bar
+        offs = (np.arange(n_days)[:, None] * 1440 + np.arange(288)[None, :] * 5).astype("timedelta64[m]")
+        out[f"D{k}"] = series_from_bars(
+            f"D{k}", pd.DatetimeIndex(base + offs.ravel()), 100 * np.exp(np.cumsum(r.ravel()))
+        )
+    return out
+
+
+def test_day_level_null_ignores_drift() -> None:
+    """A trending price must not read as a session-window edge.
+
+    The failure this pins: the day-level worlds centre a column at zero, so an
+    unconditional drift in the realised P&L survives into the *real* statistic and every
+    family looked significant - measured 10/10 at 10 bp/day, 10/10 at 20 bp/day, on a panel
+    with no clock-slot structure at all. The bar-level shared-intraday null gave 0/10.
+    The fix removes each symbol's mean intraday bar return (gap bars excluded) before P&L
+    is formed, so the null is drift-invariant while a genuine clock-slot edge is kept.
+
+    The bound is flat in the drift: if a level of drift changed the rejection rate, the
+    null would still be testing the trend rather than the structure.
+    """
+    windows = [(h, 4) for h in range(0, 19)]
+    rates = {}
+    for null_kind in ("sign-flip", "block-bootstrap"):
+        hits_at = {}
+        for bp in (0, 100):
+            hits = 0
+            for t in range(20):
+                series = make_drift_panel(bp, seed=9000 + t)
+                res = run_sweep(series, windows, n_worlds=60, seed=t, null_kind=null_kind)
+                hits += res["family"]["percentile"] >= 0.95
+            hits_at[bp] = hits
+        rates[null_kind] = hits_at
+        assert hits_at[0] <= 3, f"{null_kind}: false {hits_at[0]}/20 on pure noise"
+        assert hits_at[100] <= 3, f"{null_kind}: false {hits_at[100]}/20 at 100bp/day drift"
+        assert hits_at[100] <= hits_at[0] + 2, (
+            f"{null_kind}: drift sensitivity {hits_at[0]} -> {hits_at[100]} false positives"
+        )
+    # and the same nulls still find a real clock-slot edge
+    planted = make_synthetic(
+        [f"P{k:02d}" for k in range(20)],
+        n_days=250,
+        seed=77,
+        planted={"symbol": "__all__", "window": (10, 4), "size": 3e-4},
+    )
+    for null_kind in ("sign-flip", "block-bootstrap"):
+        res = run_sweep(
+            planted, [(9, 4), (10, 2), (10, 4), (11, 4)], n_worlds=40, seed=3, null_kind=null_kind
+        )
+        assert res["family"]["percentile"] > 0.9, (null_kind, res["family"])
+
+
 def main() -> None:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

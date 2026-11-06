@@ -77,8 +77,8 @@ def build_mt5_series(symbol: str) -> Series:
     US summer), so they pass through ``stored_to_utc`` — the repair for the trade
     server's US-DST clock — before any bar time is derived.
     """
-    df = pd.read_parquet(config.PARQUET_DIR / f"{symbol}_MT5_M1.parquet")
-    ts = mt5_clock.stored_to_utc(df["ts"])
+    df = mt5_clock.load_mt5_utc(config.PARQUET_DIR / f"{symbol}_MT5_M1.parquet")
+    ts = df["ts"]
     return series_from_bars(symbol, ts, df["close"].to_numpy(), df["spread_med_bp"].to_numpy())
 
 
@@ -219,6 +219,29 @@ def intraday_slot_null_masks(
     return masks
 
 
+def _mean_intraday_bar_return(s: "Series") -> float:
+    """Mean per-bar log return over intraday bars only; gap bars excluded.
+
+    The day-level nulls centre a column at zero, so an unconditional drift in the realised
+    P&L would survive into the real statistic and look like a session-window edge. This is
+    the drift that gets subtracted. Gap bars (the first bar of each trading day, which
+    carries the overnight/weekend return) are excluded on purpose: they belong to the
+    session boundary, not to the intraday path, and averaging them in would subtract a
+    quantity no session window ever pays.
+    """
+    r = np.asarray(s.r, dtype=float)
+    if len(r) < 2:
+        return 0.0
+    day = np.asarray(s.bar_day)
+    first = np.ones(len(r), dtype=bool)
+    first[1:] = day[1:] != day[:-1]
+    intraday = r[~first]
+    intraday = intraday[np.isfinite(intraday)]
+    if not len(intraday):
+        return 0.0
+    return float(intraday.mean())
+
+
 def run_sweep(
     series: dict[str, Series],
     windows: list[tuple[int, int]],
@@ -291,23 +314,47 @@ def run_sweep(
         # what the regression test that documents its over-rejection uses.
         null_kind = "per-symbol" if not allow_shared_world else "sign-flip"
     if null_kind in ("sign-flip", "block-bootstrap"):
+        # Remove per-bar drift, not per-window mean. Two measured facts:
+        #  - centring each window column kills the hypothesis: a clock-slot edge IS a
+        #    nonzero window mean, so the real t went to 0 and power dropped to 0.00;
+        #  - leaving the raw P&L lets drift through: a trending price with no clock-slot
+        #    structure produced 10/10 false "significant" families at 10 bp/day
+        #    (tests/test_window_sweep.py::test_day_level_null_ignores_drift).
+        # The resolution: the drift is a per-BAR quantity, the edge is a per-WINDOW
+        # quantity. Subtract each symbol's mean intraday bar return (gap bars excluded)
+        # from its bars before any P&L is formed. Every window's P&L then loses its drift
+        # contamination while keeping every clock-slot difference, which is what the
+        # hypothesis actually claims.
+        demean_by = {sym: _mean_intraday_bar_return(series[sym]) for sym in syms}
         panel = gpu_null.day_pnl_panel(
             {sym: _day_structure(s)[0] for sym, s in series.items()},
-            {sym: pnl_matrix(np.cumsum(s.r), *seg[sym]) for sym, s in series.items()},
+            {
+                sym: pnl_matrix(
+                    np.cumsum(series[sym].r - demean_by[sym]), *seg[sym]
+                )
+                for sym in syms
+            },
             syms,
             windows,
         )
         t_bar = np.concatenate([real_t[sym] for sym in syms])
+        opts = dict(null_options or {})
         if null_kind == "sign-flip":
-            run = gpu_null.sign_flip_null(panel, n_worlds, rng, **(null_options or {}))
+            # the null keeps each column's real mean: structure can legitimately be a
+            # nonzero mean, so the worlds centre nothing and the comparison is one of level
+            opts.setdefault("stat", "studentized")
+            run = gpu_null.sign_flip_null(panel, n_worlds, rng, **opts)
         else:
-            run = gpu_null.block_bootstrap_null(panel, n_worlds, rng, **(null_options or {}))
+            # the block bootstrap centres columns by construction; it takes no ``stat``
+            run = gpu_null.block_bootstrap_null(panel, n_worlds, rng, **opts)
         null_t = run.t
         null_info = run.info()
-        panel_mean, panel_t, panel_n = gpu_null.real_moments(panel)
+        null_info["demean_by_symbol_bp"] = {k: round(v * 1e4, 6) for k, v in demean_by.items()}
+        # real_t on the same drift-removed bars, so real and null stay one function of one panel
+        dmean, dt, dn = gpu_null.real_moments(panel)
         for i, sym in enumerate(syms):
             sl = slice(i * n_win, (i + 1) * n_win)
-            real_mean[sym], real_t[sym], real_n[sym] = panel_mean[sl], panel_t[sl], panel_n[sl]
+            real_mean[sym], real_t[sym], real_n[sym] = dmean[sl], dt[sl], dn[sl]
         with np.errstate(invalid="ignore"):
             dev = np.abs(np.concatenate([real_t[sym] for sym in syms]) - t_bar)
         dev_max = float(np.nanmax(dev)) if dev.size and np.isfinite(dev).any() else np.nan
@@ -468,6 +515,11 @@ def run_sweep(
             "analytic_expected_max": float(floor),
         },
         "null_kind": null_kind,
+        # Where the null actually ran and how far the real statistic moved from the
+        # bar-level one. The README cites these numbers; without them in the artifact
+        # there was no way to check whether a given run used CUDA or BLAS, or whether
+        # drift removal shifted the real t.
+        "null_info": null_info,
         "family": {
             "real_max_abs_t": real_max,
             "percentile": percentile,

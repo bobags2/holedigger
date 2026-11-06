@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
 # Trade-server offsets, in hours, measured (see module docstring).
 SERVER_OFFSET_DST_HOURS = 3.0
@@ -111,9 +112,102 @@ def stored_to_utc(ts: pd.DatetimeIndex | pd.Series) -> pd.DatetimeIndex | pd.Ser
     """MT5 *parquet* stamps -> true UTC.
 
     The panels on disk carry ``server - 3h`` from the old constant-offset ingest, so the
-    correction is +1h through US standard time and 0h through US summer time. Every
-    reader of ``data/parquet/*_MT5_M1.parquet`` must apply this before using the stamps.
+    correction is +1h through US standard time and 0h through US summer time.
+
+    Prefer :func:`load_mt5_utc` for reading panels: it decides, from the file's own
+    metadata, whether this conversion is needed at all. Calling it on a parquet the new
+    ingest already wrote as true UTC moves that file's winter bars an hour the wrong way,
+    silently, which is exactly the failure this indirection exists to prevent.
     """
     idx = pd.DatetimeIndex(ts)
     off = _offset_of_stamps(idx, 0.0)
     return _as_input_kind(ts, idx + pd.to_timedelta(LEGACY_INGEST_OFFSET_HOURS - off, unit="h"))
+
+
+# ------------------------------------------------------------------ the loader
+
+# What a parquet's pandas metadata says about the clock its ``ts`` column is on.
+CLOCK_KEY = "holedigger_clock"
+CLOCK_LEGACY = "stored-shift-3h"   # server - 3h: needs stored_to_utc
+CLOCK_UTC = "true-utc"             # written by the per-date ingest: needs nothing
+
+
+def _parquet_clock_tag(path) -> str | None:
+    """The clock recorded in a parquet's metadata, or None if it carries none.
+
+    Metadata rather than the sidecar state file, because metadata *travels with the
+    rows*: there is no window in which the file and the tag disagree, which the
+    state-file route had (a crash between ``to_parquet`` and ``_save_state`` left a
+    true-UTC file whose state still said legacy, so the next resume double-shifted it).
+    """
+    import pyarrow.parquet as pq
+
+    try:
+        meta = pq.ParquetFile(path).metadata.metadata or {}
+    except Exception:
+        return None
+    raw = meta.get(CLOCK_KEY.encode())
+    if raw is None:
+        return None
+    return raw.decode() if isinstance(raw, bytes) else str(raw)
+
+
+def write_clock_tag(path, clock: str) -> None:
+    """Record the clock a parquet is on, in that parquet's own metadata."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    if clock not in (CLOCK_LEGACY, CLOCK_UTC):
+        raise ValueError(f"clock must be {CLOCK_LEGACY!r}|{CLOCK_UTC!r}, got {clock!r}")
+    table = pq.read_table(path)
+    existing = table.schema.metadata or {}
+    merged = {**existing, CLOCK_KEY.encode(): clock.encode()}
+    pq.write_table(table.replace_schema_metadata(merged), path)
+
+
+def load_mt5_utc(path, columns=None) -> pd.DataFrame:
+    """Read an MT5 M1 parquet with its ``ts`` on true UTC, whatever clock it was on.
+
+    The conversion is decided by the file's own metadata (:func:`_parquet_clock_tag`), so
+    a file written by the new ingest is a no-op and a legacy file is repaired on read.
+    No caller needs to know which it holds, and no sidecar state can fall out of sync.
+
+    Files with no tag at all are treated as legacy: the panels written before this
+    mechanism existed all carry ``server - 3h``, and a misidentified file would be 1h off
+    through an entire winter rather than an hour off through one.
+    """
+    path = Path(path) if not isinstance(path, Path) else path
+    df = pd.read_parquet(path, columns=columns)
+    clock = _parquet_clock_tag(path)
+    if clock == CLOCK_UTC:
+        return df
+    if "ts" in df.columns:
+        df["ts"] = stored_to_utc(df["ts"])
+    return df
+
+
+def migrate_mt5_parquet(path) -> str:
+    """Rewrite one parquet's stamps to true UTC and tag it, in place. Idempotent.
+
+    This is the one-time conversion for panels already on disk; after it,
+    :func:`load_mt5_utc` becomes a no-op for that symbol and every reader can drop its
+    own ``stored_to_utc`` call. Returns the clock tag the file now carries, so a caller
+    can tell "already migrated" (``CLOCK_UTC``) from "just migrated".
+    """
+    path = Path(path)
+    if _parquet_clock_tag(path) == CLOCK_UTC:
+        return CLOCK_UTC
+    df = pd.read_parquet(path)
+    if "ts" in df.columns:
+        df["ts"] = stored_to_utc(df["ts"])
+    write_clock_tag_from_frame(df, path)
+    return CLOCK_UTC
+
+
+def write_clock_tag_from_frame(df: pd.DataFrame, path) -> None:
+    """Write ``df`` to ``path`` carrying the true-UTC tag (used by the new ingest)."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    table = pa.Table.from_pandas(df, preserve_index=False)
+    pq.write_table(table.replace_schema_metadata({CLOCK_KEY.encode(): CLOCK_UTC.encode()}), path)

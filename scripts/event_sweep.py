@@ -44,8 +44,7 @@ TRIM = 0.05
 
 
 def load_series(symbol: str, timeframe: str = "5min") -> pd.DataFrame:
-    df = pd.read_parquet(config.PARQUET_DIR / f"{symbol}_MT5_M1.parquet")
-    df["ts"] = mt5_clock.stored_to_utc(df["ts"])  # parquet clock -> true UTC
+    df = mt5_clock.load_mt5_utc(config.PARQUET_DIR / f"{symbol}_MT5_M1.parquet")
     g = df.set_index("ts").resample(timeframe)
     out = pd.DataFrame({
         "close": g["close"].last(),

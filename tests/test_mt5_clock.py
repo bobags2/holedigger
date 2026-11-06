@@ -103,6 +103,59 @@ def test_parquet_and_server_clock_agree() -> None:
     assert np.array_equal(delta == 1.0, standard)
 
 
+def _write(path, ts: pd.Series, clock_tag: str | None) -> None:
+    df = pd.DataFrame({"ts": ts, "close": np.arange(len(ts), dtype=float)})
+    if clock_tag is None:
+        df.to_parquet(path, index=False)
+    else:
+        clock.write_clock_tag_from_frame(df, path)
+
+
+def test_load_mt5_utc_reads_the_clock_from_the_file_itself() -> None:
+    """The loader must not need a sidecar: a true-UTC file is a no-op, a legacy one repairs.
+
+    This is the trap that would otherwise bite the next pull: the ingest rewrites a parquet
+    to true UTC and records that in a *state file*, while every reader applies
+    ``stored_to_utc`` unconditionally - so after one extension pull every winter bar moves
+    an hour the wrong way, silently. Reading the tag from parquet metadata closes it: the
+    tag travels with the rows, so there is no window where file and tag disagree.
+    """
+    d = clock.__dict__
+    import tempfile, os
+
+    with tempfile.TemporaryDirectory() as tmp:
+        # a legacy panel: server - 3h, spanning one full winter (all bars need +60min)
+        p = os.path.join(tmp, "legacy.parquet")
+        ts = pd.Series(pd.date_range("2025-12-01", "2026-02-01", freq="5min", tz=None))
+        _write(p, ts, None)
+        assert clock._parquet_clock_tag(p) is None, "an untagged file must read as legacy"
+        legacy = clock.load_mt5_utc(p)
+        assert (legacy["ts"] - ts).eq(pd.Timedelta(hours=1)).all(), "legacy must repair +1h"
+
+        # migrate, and the same loader must now be a no-op
+        assert clock.migrate_mt5_parquet(p) == clock.CLOCK_UTC
+        assert clock._parquet_clock_tag(p) == clock.CLOCK_UTC
+        after = clock.load_mt5_utc(p)
+        assert after["ts"].equals(legacy["ts"]), "a migrated file must not shift again"
+
+        # idempotent: migrating again changes nothing
+        assert clock.migrate_mt5_parquet(p) == clock.CLOCK_UTC
+        assert clock.load_mt5_utc(p)["ts"].equals(legacy["ts"])
+
+        # a file the new ingest writes directly is also a no-op
+        p2 = os.path.join(tmp, "newingest.parquet")
+        utc_ts = pd.Series(pd.date_range("2026-07-01", "2026-07-05", freq="5min", tz=None))
+        clock.write_clock_tag_from_frame(
+            pd.DataFrame({"ts": utc_ts, "close": np.arange(len(utc_ts), dtype=float)}), p2
+        )
+        assert clock.load_mt5_utc(p2)["ts"].equals(utc_ts), "true-UTC file must pass through"
+
+        # and the trap is demonstrably still a trap for anyone calling the raw conversion
+        naive = clock.stored_to_utc(after["ts"])
+        assert not naive.equals(after["ts"]), "stored_to_utc on a migrated file still shifts"
+        assert naive.equals(after["ts"] + pd.Timedelta(hours=1))
+
+
 def main() -> None:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

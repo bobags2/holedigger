@@ -88,6 +88,7 @@ class DayPanel:
     windows: tuple[tuple[int, int], ...]
     pnl: np.ndarray  # (n_days, n_candidates) float64, 0.0 where invalid
     valid: np.ndarray  # (n_days, n_candidates) bool
+    demean: tuple[tuple[str, float], ...] = ()  # what was subtracted, per symbol, and why
 
     @property
     def n_valid(self) -> np.ndarray:
@@ -107,6 +108,7 @@ def day_pnl_panel(
     pnl_by_symbol: Mapping[str, np.ndarray],
     symbols: Sequence[str],
     windows: Sequence[tuple[int, int]],
+    demean_by: Mapping[str, float] | None = None,
 ) -> DayPanel:
     """Assemble the shared panel from per-symbol ``(days, pnl)`` blocks.
 
@@ -114,12 +116,22 @@ def day_pnl_panel(
     the window is invalid on that day. Days are unioned across symbols, columns are
     symbol-major so ``reshape(n_worlds, n_symbols, n_windows)`` stays valid for the sector
     test, and a symbol missing a day leaves that row's cells invalid for that symbol only.
+
+    ``demean_by[sym]`` subtracts a constant from every valid cell of that symbol before the
+    panel is built. ``run_sweep`` passes each symbol's mean intraday bar return (gap bars
+    excluded) so a plain buy-and-hold drift cannot read as a session-window edge: the
+    sign-flip and block-bootstrap worlds centre a column at zero, so any unconditional
+    drift in the realised P&L survives into the null-free *real* statistic and makes it
+    look extreme. Removing it first means the null tests "time-of-day structure", which is
+    what the hypothesis claims. ``None`` (the default) keeps the raw P&L, and the value
+    used is recorded in the artifact via ``DayPanel.demean``.
     """
     syms = list(symbols)
     n_win = len(windows)
     all_days = np.unique(np.concatenate([np.asarray(days_by_symbol[s]) for s in syms]))
     pnl = np.zeros((len(all_days), len(syms) * n_win), dtype=np.float64)
     valid = np.zeros(pnl.shape, dtype=bool)
+    demean = dict(demean_by or {})
     for i, sym in enumerate(syms):
         d = np.asarray(days_by_symbol[sym])
         p = np.asarray(pnl_by_symbol[sym], dtype=np.float64)
@@ -131,10 +143,11 @@ def day_pnl_panel(
         ok = np.isfinite(p)
         if not ok.any():
             continue
+        p = np.where(ok, p - float(demean.get(sym, 0.0)), np.nan)
         sl = slice(i * n_win, (i + 1) * n_win)
         pnl[rows, sl] = np.where(ok, p, 0.0)
         valid[rows, sl] = ok
-    return DayPanel(all_days, tuple(syms), tuple(windows), pnl, valid)
+    return DayPanel(all_days, tuple(syms), tuple(windows), pnl, valid, tuple(sorted(demean.items())))
 
 
 def t_of_moments(total: np.ndarray, sumsq: np.ndarray, n: np.ndarray) -> np.ndarray:
@@ -151,16 +164,29 @@ def t_of_moments(total: np.ndarray, sumsq: np.ndarray, n: np.ndarray) -> np.ndar
         return mean / (sd / np.sqrt(n))
 
 
-def real_moments(panel: DayPanel) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def real_moments(panel: DayPanel, centre: bool = False) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """(mean, t, n) per candidate, from the panel the null worlds are built from.
 
     With ``studentized`` worlds this is the same function as ``window_stats`` on the
-    bar-level P&L (measured deviation in the artifact's ``null_info``), so real and null
+    bar-level P&L (the measured deviation is recorded in ``null_info``), so real and null
     live on one scale by construction.
+
+    ``centre=True`` subtracts each column's own mean first, and is **required** whenever
+    the hypothesis is "time-of-day structure" rather than "the window has positive
+    expected value": an unconditional drift (a trending price) puts a nonzero mean into
+    every window's P&L, and a sign-flip world built from that same panel reproduces it,
+    so the real t looks extreme against the null and pure drift reads as a session-window
+    edge (measured: 10/10 false family rejections at 10bp/day). Centring the column makes
+    the real statistic and the null worlds one function of one centred panel again. Callers
+    that centre must use ``stat="demeaned"`` for the null too, or the two disagree.
     """
     n = panel.n_valid.astype(np.float64)
-    total = panel.pnl.sum(axis=0)
-    sumsq = np.einsum("ij,ij->j", panel.pnl, panel.pnl)
+    p = panel.pnl
+    if centre:
+        with np.errstate(invalid="ignore", divide="ignore"):
+            p = np.where(panel.valid, p - p.sum(axis=0) / n, 0.0)
+    total = p.sum(axis=0)
+    sumsq = np.einsum("ij,ij->j", p, p)
     with np.errstate(invalid="ignore", divide="ignore"):
         mean = total / n
     return mean, t_of_moments(total, sumsq, n), n
