@@ -617,8 +617,11 @@ it now is). Both run under `python -m scripts.event_test`.
    **destroy exactly the hypothesis** — a whole-day permutation cannot kill a fixed
    clock-slot effect when the effect is planted on the same bar of every day.
 4. **Every survivor needs a mechanism story and a measured cost model.** The cost model
-   exists (8/8 symbols; break-even spread reported per candidate). No survivor has needed to
-   pass it yet — three families, zero survivors, and that is the honest state.
+   exists (per-symbol commission with the per-side assumption pinned by test, per-bar
+   spread, break-even spread per candidate, and an out-of-sample counterpart for the
+   direction choice). No survivor has needed to pass it yet — six families, zero survivors,
+   and three published effects were withdrawn as measurement defects rather than surviving
+   as leads. That is the honest state.
 
 ## Next
 
@@ -627,10 +630,16 @@ it now is). Both run under `python -m scripts.event_test`.
    (`artifacts/mt5_audit.json` now gives this for 115 symbols at true-UTC hours, but the
    spread sinks are still per-candidate, not a predicted-cost model.)
 2. Symbol-holdout splits: select on 6 symbols, verify the same rule on 2 unseen ones.
-3. Project-level multiplicity: ~2,300 hypotheses are registered; when a candidate survives its
-   family null, the registry is what lets the cross-family selection bias be priced
-   (White/Hansen style) instead of asserted away. It still carries no discovery/confirmation
-   role, data fingerprint or source tag, so project-level multiplicity is unpriced.
+3. Project-level multiplicity: **9,271 hypotheses are registered and 59,205 evaluations
+   recorded, of which 59,067 are withdrawn** — every one made before the inference repairs
+   (clock unrecorded, so ~32% of bars were an hour early; null family unrecorded, and the
+   sector-level per-symbol permutation was later shown to reject ~100% of pure-noise
+   worlds). 138 evaluations are active, all at `clock=true-utc` with a data fingerprint.
+   The registry now carries a role (discovery vs confirmation), a data fingerprint and a
+   clock tag, and `withdraw()` marks a superseded evaluation append-only with its reason —
+   so project-level multiplicity is a `summary()` call, not an archaeology project. The one
+   thing still unpriced: 8,649 hypotheses were evaluated more than once, and White/Hansen
+   style cross-family selection bias across those repeats is not yet computed.
 4. Mask audited `anomalous_months` inside feature builders rather than dropping the series.
 5. Scale the null, not just the search: the sign-flip null's cost is one GEMM per chunk, so
    worlds are nearly free — use them for per-candidate adjusted p-values (step-down over the
