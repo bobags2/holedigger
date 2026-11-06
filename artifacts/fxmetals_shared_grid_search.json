@@ -1,0 +1,140 @@
+{
+  ">=10_symbol_homogeneous_panels": {
+    "m1": 0,
+    "m5": 0
+  },
+  "chosen": {
+    "bars_per_day": 1379,
+    "days": 165,
+    "first_day": "2025-11-25",
+    "last_day": "2026-11-03",
+    "symbols": [
+      "XAUUSD",
+      "XAGUSD",
+      "XTIUSD"
+    ]
+  },
+  "grids": {
+    "m1": {
+      "best_by_size": [
+        {
+          "bars_per_day": 1379,
+          "days": 180,
+          "panel_days": 360,
+          "symbols": [
+            "XAUUSD",
+            "XAGUSD"
+          ]
+        },
+        {
+          "bars_per_day": 1379,
+          "days": 165,
+          "panel_days": 495,
+          "symbols": [
+            "XAUUSD",
+            "XAGUSD",
+            "XTIUSD"
+          ]
+        },
+        {
+          "bars_per_day": 1379,
+          "days": 32,
+          "panel_days": 128,
+          "symbols": [
+            "XAUUSD",
+            "XAGUSD",
+            "XTIUSD",
+            "NAS100"
+          ]
+        },
+        {
+          "bars_per_day": 60,
+          "days": 9,
+          "panel_days": 45,
+          "symbols": [
+            "XAUUSD",
+            "XAGUSD",
+            "XNGUSD",
+            "XTIUSD",
+            "XPTUSD"
+          ]
+        },
+        {
+          "bars_per_day": 1259,
+          "days": 6,
+          "panel_days": 36,
+          "symbols": [
+            "EURUSD",
+            "XAUUSD",
+            "XAGUSD",
+            "XNGUSD",
+            "XTIUSD",
+            "NAS100"
+          ]
+        }
+      ],
+      "definition": "MT5 M1 bars (build_mt5_series), exact per-day counts"
+    },
+    "m5": {
+      "best_by_size": [
+        {
+          "bars_per_day": 276,
+          "days": 189,
+          "panel_days": 378,
+          "symbols": [
+            "XAUUSD",
+            "XTIUSD"
+          ]
+        },
+        {
+          "bars_per_day": 276,
+          "days": 188,
+          "panel_days": 564,
+          "symbols": [
+            "XAUUSD",
+            "XAGUSD",
+            "XTIUSD"
+          ]
+        },
+        {
+          "bars_per_day": 276,
+          "days": 185,
+          "panel_days": 740,
+          "symbols": [
+            "XAUUSD",
+            "XAGUSD",
+            "XNGUSD",
+            "XTIUSD"
+          ]
+        },
+        {
+          "bars_per_day": 24,
+          "days": 34,
+          "panel_days": 170,
+          "symbols": [
+            "XAUUSD",
+            "XAGUSD",
+            "XNGUSD",
+            "XTIUSD",
+            "XPTUSD"
+          ]
+        },
+        {
+          "bars_per_day": 24,
+          "days": 8,
+          "panel_days": 48,
+          "symbols": [
+            "XAUUSD",
+            "XAGUSD",
+            "XNGUSD",
+            "XTIUSD",
+            "XPTUSD",
+            "NAS100"
+          ]
+        }
+      ],
+      "definition": "M5 resample (last close, dropna), exact per-day counts"
+    }
+  },
+  "objective": "maximise symbols x days, then symbols, then days"
+}
