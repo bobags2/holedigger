@@ -228,6 +228,9 @@ src/costs.py        broker cost model (commission table, break-even spread)
 src/window_sweep.py family 1: session windows + null calibration + registry
 src/gpu_null.py     day-level sign-flip / block-bootstrap null on the days x candidates
                     P&L matrix; numpy-BLAS and torch-CUDA GEMM backends, chunked for 8GB
+src/oos_eval.py     the learned-strategy layer: purged walk-forward OOS P&L columns appended
+                    to the same panel, selection priced inside the null, pi0 + step-down
+                    adjusted p-values, half-split decay, empirical-Bayes partial pooling
 src/pooled_test.py  pre-registered pooled dollar-strength test (joint surrogate)
 src/pair_sweep.py   family 3: pair dislocation reversion (rolling beta/z, sequential sim)
 scripts/fxmetals_shared_grid.py  proves whether a grid-homogeneous subpanel exists for a universe
@@ -256,6 +259,7 @@ python -m src.pooled_test --worlds 200   # pre-registered dollar-strength re-tes
 python -m src.pair_sweep --worlds 200    # family 3: pair dislocations (~2 min)
 python -m scripts.tape_analysis          # analyze newest ../ctrader/tape/*.csv
 
+python -m tests.test_oos_eval; python -m tests.test_window_sweep; python -m tests.test_mt5_clock
 python -m tests.test_registry; python -m tests.test_surrogates; python -m tests.test_noise_floor; python -m tests.test_window_sweep; python -m tests.test_pooled; python -m tests.test_pair_sweep
 
 # live spread tape (run from ../ctrader; refresh the token first if stale):
