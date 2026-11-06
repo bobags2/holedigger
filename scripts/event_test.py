@@ -42,11 +42,17 @@ def load_mid(symbol: str, timeframe: str = "5min") -> pd.DataFrame:
 
 
 def event_windows(events: pd.DataFrame, currency: str, impact: str) -> pd.DataFrame:
+    """Events for one currency/impact, at least ``MIN_MINUTES`` apart.
+
+    Two events inside the same window are not two observations: the second adds nothing
+    and quietly halves the spacing the design assumes. Dropping events closer than
+    ``MIN_MINUTES`` keeps every window one event's, so the count means what it says.
+    """
     ev = events[(events["currency"] == currency) & (events["importance"] == impact)].copy()
     ev = ev.sort_values("ts")
     keep, last = [], None
     for t in ev["ts"]:
-        if last is None or (t - last) > pd.Timedelta(0):
+        if last is None or (t - last) >= pd.Timedelta(minutes=MIN_MINUTES):
             keep.append(t)
             last = t
     ev = ev[ev["ts"].isin(keep)]
@@ -55,19 +61,36 @@ def event_windows(events: pd.DataFrame, currency: str, impact: str) -> pd.DataFr
 
 def control_times(event_times: pd.DatetimeIndex, mid_index: pd.DatetimeIndex,
                   events: pd.DataFrame, currency: str) -> list[pd.Timestamp]:
-    """Same clock time, non-event day (vectorized: one candidate per event)."""
+    """Same clock time, non-event day, ONE control per distinct quiet day.
+
+    Taking the most recent quiet bar at each event's clock time reuses the same quiet day
+    for every event in its neighbourhood: measured, 284 event windows drew their controls
+    from only 9 distinct days, one of them 72 times. The control mean and its t-stat then
+    describe those 9 days, not 284 observations, so the control baseline the incremental is
+    measured against is far tighter than it looks - the published "n=284, t=-5.13" was
+    really n=9. So: walk events in time order, and never reuse a quiet day that has already
+    served as a control. When the supply of quiet days is exhausted the remaining events
+    simply get no control, and the sample is honestly smaller.
+    """
     event_days = set(events[events["currency"] == currency]["ts"].dt.floor("D"))
     mid_ns = mid_index.asi8                      # int64 ns since epoch
-    day_ns = np.array([n - (n % 86_400_000_000_000) for n in mid_ns], dtype="int64")
+    day_ns = mid_ns - (mid_ns % 86_400_000_000_000)
     tod_minutes = (mid_ns % 86_400_000_000_000) // 60_000_000_000
-    out = []
+    event_day_ns = np.array(sorted(d.value for d in event_days), dtype="int64")
+    allowed_day = ~np.isin(day_ns, event_day_ns)
+    out, used_days = [], set()
     for t in event_times:
         n = t.value
         same_tod = tod_minutes == ((n % 86_400_000_000_000) // 60_000_000_000)
-        allowed = ~np.isin(day_ns, np.array(list(event_days), dtype="datetime64[ns]").astype(np.int64))
-        cands = mid_ns[same_tod & allowed & (mid_ns < n)]
-        if len(cands):
-            out.append(pd.Timestamp(cands.max(), unit="ns"))
+        cands = mid_ns[same_tod & allowed_day & (mid_ns < n)]
+        if not len(cands):
+            continue
+        best = int(cands.max())                  # most recent quiet bar at this clock time
+        d = best - (best % 86_400_000_000_000)
+        if d in used_days or d == (n - (n % 86_400_000_000_000)):
+            continue                             # this day is spent (or IS an event day)
+        used_days.add(d)
+        out.append(pd.Timestamp(best, unit="ns"))
     return out
 
 
@@ -77,6 +100,42 @@ def window_return(close: pd.Series, t: pd.Timestamp, horizon_min: int) -> float 
     if len(s) < 3 or s.index[-1] < end - pd.Timedelta(minutes=TOLERANCE_MIN):
         return None
     return float(np.log(s.iloc[-1] / s.iloc[0]) * 1e4)
+
+
+def test_control_days_are_distinct() -> None:
+    """Controls must come from distinct quiet days, or the control t-stat is fabricated.
+
+    The defect: taking the most recent quiet bar at each event's clock time made 284
+    controls draw from 9 distinct days (one 72 times). The control baseline therefore
+    described 9 days while reporting n=284, and its t-stat was inflated by roughly
+    sqrt(284/9) ~ 5.6x - which is what produced the published "control mean -1.84bp,
+    t=-5.13" that the +2.0bp event incremental sat on top of. With distinct days the
+    control is n=9, t=+0.54, and the incremental vanishes.
+    """
+    from collections import Counter
+
+    events = load_events()
+    mids = load_mid("EURUSD")
+    ew = event_windows(events, "USD", "High importance")
+    ct = control_times(ew.index, mids.index, events, "USD")
+    assert len(ct) >= 5, f"only {len(ct)} controls produced"
+    counts = Counter(t.floor("D") for t in ct)
+    assert max(counts.values()) == 1, f"a control day was reused: {counts.most_common(3)}"
+    # every control must be strictly before its event and never on an event day
+    event_day_set = set(events[events["currency"] == "USD"]["ts"].dt.floor("D"))
+    for t in ct:
+        assert t.floor("D") not in event_day_set
+
+
+def test_event_windows_are_min_minutes_apart() -> None:
+    """``MIN_MINUTES`` must actually separate events, not be declared and unused."""
+    events = load_events()
+    ew = event_windows(events, "USD", "High importance")
+    ts = np.array([int(t.value) for t in ew.index])
+    if len(ts) < 2:
+        return
+    gaps_min = np.diff(ts) / 60_000_000_000
+    assert gaps_min.min() >= MIN_MINUTES, f"events {gaps_min.min():.0f}min apart (< {MIN_MINUTES})"
 
 
 def main() -> None:

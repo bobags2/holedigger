@@ -577,18 +577,28 @@ Design note — the null that matters here: comparing event windows against the 
 time on days with no event for that currency**. The intraday drift measured earlier is
 therefore inside the null, and only event-specific behaviour counts as signal.
 
-First result (EURUSD, high-impact USD events, +30 min, ~9 months):
+Result (EURUSD, high-impact USD events, +30 min, ~9 months) — **the published lead is
+withdrawn (2026-11-06).**
 
 | | mean | t |
 |---|---|---|
-| event windows (n=292) | +0.16 bp | +0.36 |
-| clock-time controls (n=284) | −1.84 bp | −5.13 |
-| **incremental** | **+2.0 bp** | — |
+| event windows (n=292) | +0.137 bp | +0.35 |
+| clock controls (n=**9**) | +0.603 bp | +0.54 |
+| **incremental** | **−0.47 bp** | — |
 
-Reads as: the event hour is ~2 bp *less negative* than the same hour on quiet days — a real
-incremental effect sitting on top of a strongly negative baseline hour. +2.0 bp is near
-EURUSD's cost (zero spread + commission), so this is a lead, not a candidate: the standard
-barriers apply — more symbols, cross-instrument replication, and the measured spread.
+The earlier version reported controls at n=284, mean −1.84 bp, t −5.13, and an incremental
+of +2.0 bp. That control sample was **284 draws from only 9 distinct quiet days** — one day
+was reused 72 times — because `control_times` took the most recent quiet bar at each event's
+clock time, so a run of events in one week kept hitting the same preceding quiet days. The
+control therefore described 9 days while reporting n=284, inflating its t-stat by roughly
+√(284/9) ≈ 5.6×, and that manufactured a strongly negative baseline for the +2.0 bp
+incremental to sit on top of. With one control per distinct quiet day the control mean is
+*positive* and insignificant, and the incremental is −0.47 bp — nothing. +2.0 bp is not a
+lead; there is no event effect in this sample at all.
+
+Regression tests: `scripts/event_test.py::test_control_days_are_distinct` (no reuse) and
+`::test_event_windows_are_min_minutes_apart` (`MIN_MINUTES` was declared but never applied;
+it now is). Both run under `python -m scripts.event_test`.
 
 ## Design rules this repo encodes
 

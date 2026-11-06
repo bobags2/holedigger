@@ -58,7 +58,16 @@ def trimmed_mean(a: np.ndarray) -> float:
     return float(np.sort(a)[k : len(a) - k].mean()) if k else float(a.mean())
 
 
-def collect(symbol, currency, impact, horizon, events, series, exclude_swap_crossers, swap_hour):
+def collect(symbol, currency, impact, horizon, events, series, exclude_swap_crossers, swap_hour,
+            min_events=20, min_controls=5):
+    """One candidate's event and control forward returns, plus per-event spread.
+
+    ``min_controls`` is 5, not 20, because the control sample is legitimately small once
+    each quiet day is used at most once: the distinct-day rule that fixes the reused-control
+    defect caps it at the number of quiet days in the panel, which is what the sample size
+    really is. The artifact reports the actual n_events/n_controls so a reader can see how
+    thin it is rather than trusting a count that was inflated by reuse.
+    """
     ev = event_windows(events, currency, impact)
     if not len(ev):
         return None
@@ -82,7 +91,7 @@ def collect(symbol, currency, impact, horizon, events, series, exclude_swap_cros
         r = window_return(close, t, horizon)
         if r is not None:
             c_r.append(r)
-    if len(ev_r) < 20 or len(c_r) < 20:
+    if len(ev_r) < min_events or len(c_r) < min_controls:
         return None
     return (np.asarray(ev_r, float), np.asarray(c_r, float), np.asarray(ev_sp, float))
 
@@ -118,19 +127,54 @@ def main() -> None:
     def med_inc(c):
         return float(np.median(c["ev_r"]) - np.median(c["c_r"]))
 
+    def median_se(a: np.ndarray) -> float:
+        """Bootstrap se of a median (1000 draws, fixed seed) - the scale the raw bp lacked."""
+        if len(a) < 5:
+            return float("nan")
+        r = np.random.default_rng(12345)
+        idx = r.integers(0, len(a), size=(1000, len(a)))
+        return float(np.median(a[idx], axis=1).std(ddof=1))
+
+    def studentized(c):
+        """Median incremental in units of its own bootstrap se.
+
+        A raw-bp median cannot rank across instruments - natgas at a 24bp spread and gold at
+        0.2bp are not on one scale, so the family max used to be "noisiest instrument" rather
+        than "most statistically extreme" (measured: the old table's top rows were oil and
+        natgas, both cost-dead). This statistic puts every candidate on one scale.
+        """
+        m = med_inc(c)
+        se = np.sqrt(median_se(c["ev_r"]) ** 2 + median_se(c["c_r"]) ** 2)
+        return float(m / se) if se and np.isfinite(se) and se > 0 else float("nan")
+
     real = {i: med_inc(c) for i, c in enumerate(combos)}
     real_max = max(abs(v) for v in real.values())
 
-    rng = np.random.default_rng(config.SEED)
+    real_s = {i: studentized(c) for i, c in enumerate(combos)}
+    real_max_s = max(abs(v) for v in real_s.values() if np.isfinite(v))
+    # per-candidate bootstrap se of the event and control medians: the scale the raw-bp
+    # statistic lacked, and the divisor the null worlds use
+    real_se = np.array([
+        np.sqrt(median_se(c["ev_r"]) ** 2 + median_se(c["c_r"]) ** 2) for c in combos
+    ])
     null_max = np.empty(args.perms)
+    null_max_s = np.empty(args.perms)
+    rng = np.random.default_rng(config.SEED)
     for p in range(args.perms):
         mx = 0.0
-        for c in combos:
+        mxs = 0.0
+        for i, c in enumerate(combos):
             pool = np.concatenate([c["ev_r"], c["c_r"]])
             labels = np.array([1] * len(c["ev_r"]) + [0] * len(c["c_r"]))
             rng.shuffle(labels)
-            mx = max(mx, abs(float(np.median(pool[labels == 1]) - np.median(pool[labels == 0]))))
+            a, b = pool[labels == 1], pool[labels == 0]
+            d = abs(float(np.median(a) - np.median(b)))
+            mx = max(mx, d)
+            se = real_se[i]
+            if np.isfinite(se) and se > 0:
+                mxs = max(mxs, d / se)
         null_max[p] = mx
+        null_max_s[p] = mxs
 
     rows = []
     for i, c in enumerate(combos):
@@ -142,15 +186,17 @@ def main() -> None:
             "event_median_bp": round(ev_med, 3),
             "control_median_bp": round(float(np.median(c["c_r"])), 3),
             "median_incremental_bp": round(real[i], 3),
+            "studentized_incremental": round(real_s[i], 4) if np.isfinite(real_s[i]) else None,
             "trimmed_incremental_bp": round(trimmed_mean(c["ev_r"]) - trimmed_mean(c["c_r"]), 3),
             "spread_median_bp": round(sp, 3) if np.isfinite(sp) else None,
             "net_of_spread_bp": round(ev_med - sp, 3) if np.isfinite(sp) else None,
             "null_percentile": round(float((null_max < abs(real[i])).mean()), 4),
+            "studentized_null_percentile": round(float((null_max_s < abs(real_s[i])).mean()), 4),
         })
-    rows.sort(key=lambda r: -abs(r["median_incremental_bp"]))
+    rows.sort(key=lambda r: -abs(r["studentized_incremental"] or 0.0))
 
     result = {
-        "config": {"symbols": args.symbols, "currencies": args.currencies,
+        "config": {"symbols": args.symbols, "currencies": args.currencies, "statistic": "median + studentized",
                    "horizons": args.horizons, "impact": args.impact,
                    "perms": args.perms, "estimator": "median",
                    "swap_hour": args.swap_hour, "exclude_swap_crossers": args.exclude_swap_crossers},
@@ -160,6 +206,12 @@ def main() -> None:
             "null_max_mean": round(float(null_max.mean()), 3),
             "null_max_p95": round(float(np.percentile(null_max, 95)), 3),
             "real_percentile": round(float((null_max < real_max).mean()), 4),
+            "family_studentized": {
+                "real_max_abs": round(real_max_s, 3),
+                "null_mean": round(float(np.nanmean(null_max_s)), 3),
+                "null_p95": round(float(np.nanpercentile(null_max_s, 95)), 3),
+                "percentile": round(float((np.nan_to_num(null_max_s, nan=-np.inf) < real_max_s).mean()), 4),
+            },
         },
         "candidates": rows,
     }
