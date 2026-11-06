@@ -228,6 +228,8 @@ src/costs.py        broker cost model (commission table, break-even spread)
 src/window_sweep.py family 1: session windows + null calibration + registry
 src/gpu_null.py     day-level sign-flip / block-bootstrap null on the days x candidates
                     P&L matrix; numpy-BLAS and torch-CUDA GEMM backends, chunked for 8GB
+src/reality_check.py White's Reality Check + Hansen's SPA on the shared panel: prices the
+                    selection bias of the whole search, not one candidate's null
 src/oos_eval.py     the learned-strategy layer: purged walk-forward OOS P&L columns appended
                     to the same panel, selection priced inside the null, pi0 + step-down
                     adjusted p-values, half-split decay, empirical-Bayes partial pooling
@@ -259,7 +261,7 @@ python -m src.pooled_test --worlds 200   # pre-registered dollar-strength re-tes
 python -m src.pair_sweep --worlds 200    # family 3: pair dislocations (~2 min)
 python -m scripts.tape_analysis          # analyze newest ../ctrader/tape/*.csv
 
-python -m tests.test_oos_eval; python -m tests.test_window_sweep; python -m tests.test_mt5_clock
+python -m tests.test_reality_check; python -m tests.test_oos_eval; python -m tests.test_window_sweep; python -m tests.test_mt5_clock
 python -m tests.test_registry; python -m tests.test_surrogates; python -m tests.test_noise_floor; python -m tests.test_window_sweep; python -m tests.test_pooled; python -m tests.test_pair_sweep
 
 # live spread tape (run from ../ctrader; refresh the token first if stale):
@@ -636,10 +638,15 @@ it now is). Both run under `python -m scripts.event_test`.
    sector-level per-symbol permutation was later shown to reject ~100% of pure-noise
    worlds). 138 evaluations are active, all at `clock=true-utc` with a data fingerprint.
    The registry now carries a role (discovery vs confirmation), a data fingerprint and a
-   clock tag, and `withdraw()` marks a superseded evaluation append-only with its reason —
-   so project-level multiplicity is a `summary()` call, not an archaeology project. The one
-   thing still unpriced: 8,649 hypotheses were evaluated more than once, and White/Hansen
-   style cross-family selection bias across those repeats is not yet computed.
+   clock tag, and `withdraw()` marks a superseded evaluation append-only with its reason.
+   And the selection bias itself is now *priced*, not just counted: `src/reality_check.py`
+   runs White's Reality Check (equal-weight portfolio over the whole family) and Hansen's
+   SPA (best candidate, studentized, truncated) on the same days × candidates panel the
+   nulls price. Measured on the equities panel: **White RC p = 0.767, SPA p = 1.0** — the
+   whole 7,245-candidate search has no performance, which is the number the withdrawn
+   z = −6.07 headline should have been quoted against. Still unpriced: cross-family
+   selection bias across the 8,649 hypotheses evaluated more than once, where the repeats
+   span different families and no shared panel exists to price them together.
 4. Mask audited `anomalous_months` inside feature builders rather than dropping the series.
 5. Scale the null, not just the search: the sign-flip null's cost is one GEMM per chunk, so
    worlds are nearly free — use them for per-candidate adjusted p-values (step-down over the
