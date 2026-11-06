@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 
 from . import config, costs, gpu_null, mt5_clock, noise_floor
-from .registry import Registry
+from .registry import DISCOVERY, Registry, data_fingerprint
 from .surrogates import stationary_bootstrap_indices
 
 HOLDS = [1, 2, 4, 8]
@@ -658,7 +658,9 @@ def main() -> None:
     build = build_mt5_series if args.source == "mt5" else build_series
     series = {sym: build(sym) for sym in args.symbols}
 
-    # Register every candidate before anything is evaluated.
+    # Register every candidate before anything is evaluated. A session-window candidate is
+    # produced by a search, so its role is ``discovery``: it carries the selection bias of
+    # the grid it was found on, and cannot support a claim on its own.
     reg = Registry(config.REGISTRY_PATH)
     for sym in series:
         for h, d in windows:
@@ -666,6 +668,7 @@ def main() -> None:
                 {"family": "session_window_v1", "symbol": sym, "entry_hour_utc": h, "hold_hours": d},
                 generator="window_sweep",
                 generator_version="1",
+                role=DISCOVERY,
             )
 
     null_options = {}
@@ -691,6 +694,20 @@ def main() -> None:
             },
             generator="window_sweep",
             generator_version="1",
+            role=DISCOVERY,
+        )
+        # Which data and which clock this evaluation priced. Before the parquet-metadata
+        # loader, MT5 stamps were repaired on read (``stored_to_utc``); after the migration
+        # they arrive already true-UTC. Both are the same symbols, so the fingerprint/clock
+        # pair is what tells an old number from a current one.
+        fp = data_fingerprint(
+            {
+                "symbol": row["symbol"],
+                "source": args.source,
+                "n": row["n"],
+                "bars": "panels migrated to true-utc (mt5_clock.load_mt5_utc)",
+                "code": "window_sweep v1 + shared day+slot null / sign-flip",
+            }
         )
         reg.record_evaluation(
             hid,
@@ -704,10 +721,15 @@ def main() -> None:
                 "net_bp_tape": None if row["net_bp_tape"] is None else round(row["net_bp_tape"], 5),
                 "net_spread_edge_bp": None if row["net_spread_edge_bp"] is None else round(row["net_spread_edge_bp"], 5),
                 "net_spread_t": None if row["net_spread_t"] is None else round(row["net_spread_t"], 3),
+                # out-of-sample counterpart: direction picked on the first half of days
+                "oos_net_edge_bp": None if row.get("oos_net_edge_bp") is None else round(row["oos_net_edge_bp"], 5),
+                "oos_net_t": None if row.get("oos_net_t") is None else round(row["oos_net_t"], 3),
             },
             {"null": {"mean_block": 1.0, "worlds": args.worlds, "kind": result["null_kind"]},
              "source": args.source, "symbols": len(series),
              "spread": "adopted per symbol (tape 2026-10-05)"},
+            data_fingerprint=fp,
+            clock="true-utc",
         )
 
     with args.out.open("w", encoding="utf-8") as f:
