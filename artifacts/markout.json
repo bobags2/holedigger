@@ -1,0 +1,422 @@
+{
+  "XAUUSD": {
+    "symbol": "XAUUSD",
+    "bars": 338892,
+    "span": [
+      "2025-11-19 23:00:00",
+      "2026-11-04 21:31:00"
+    ],
+    "median_spread_bp": 0.1677,
+    "horizons": {
+      "+1m": {
+        "gross": {
+          "n": 338891,
+          "mean_bp": -0.00015,
+          "t": -0.018,
+          "hit": 0.4988
+        },
+        "passive_bid": {
+          "n": 169157,
+          "mean_bp": -0.07524,
+          "t": -6.263,
+          "hit": 0.4948
+        },
+        "passive_offer": {
+          "n": 169027,
+          "mean_bp": -0.07481,
+          "t": -6.384,
+          "hit": 0.4966
+        },
+        "passive_bid_wide": {
+          "n": 85108,
+          "mean_bp": -0.07138,
+          "t": -3.698,
+          "hit": 0.4958
+        },
+        "passive_bid_tight": {
+          "n": 84049,
+          "mean_bp": -0.07914,
+          "t": -5.561,
+          "hit": 0.4939
+        }
+      },
+      "+5m": {
+        "gross": {
+          "n": 338887,
+          "mean_bp": -0.00083,
+          "t": -0.045,
+          "hit": 0.4991
+        },
+        "passive_bid": {
+          "n": 169153,
+          "mean_bp": -0.02639,
+          "t": -0.995,
+          "hit": 0.5012
+        },
+        "passive_offer": {
+          "n": 169027,
+          "mean_bp": -0.02286,
+          "t": -0.881,
+          "hit": 0.5029
+        },
+        "passive_bid_wide": {
+          "n": 85105,
+          "mean_bp": 0.03576,
+          "t": 0.841,
+          "hit": 0.5055
+        },
+        "passive_bid_tight": {
+          "n": 84048,
+          "mean_bp": -0.08933,
+          "t": -2.831,
+          "hit": 0.4969
+        }
+      },
+      "+15m": {
+        "gross": {
+          "n": 338877,
+          "mean_bp": -0.00244,
+          "t": -0.077,
+          "hit": 0.5
+        },
+        "passive_bid": {
+          "n": 169146,
+          "mean_bp": -0.00668,
+          "t": -0.148,
+          "hit": 0.5025
+        },
+        "passive_offer": {
+          "n": 169024,
+          "mean_bp": -0.00032,
+          "t": -0.007,
+          "hit": 0.5025
+        },
+        "passive_bid_wide": {
+          "n": 85102,
+          "mean_bp": 0.14382,
+          "t": 2.016,
+          "hit": 0.5123
+        },
+        "passive_bid_tight": {
+          "n": 84044,
+          "mean_bp": -0.15908,
+          "t": -2.911,
+          "hit": 0.4925
+        }
+      },
+      "+30m": {
+        "gross": {
+          "n": 338862,
+          "mean_bp": -0.00518,
+          "t": -0.116,
+          "hit": 0.4995
+        },
+        "passive_bid": {
+          "n": 169140,
+          "mean_bp": -0.03172,
+          "t": -0.499,
+          "hit": 0.5008
+        },
+        "passive_offer": {
+          "n": 169015,
+          "mean_bp": -0.02057,
+          "t": -0.326,
+          "hit": 0.502
+        },
+        "passive_bid_wide": {
+          "n": 85101,
+          "mean_bp": 0.04237,
+          "t": 0.422,
+          "hit": 0.5082
+        },
+        "passive_bid_tight": {
+          "n": 84039,
+          "mean_bp": -0.10675,
+          "t": -1.37,
+          "hit": 0.4933
+        }
+      }
+    },
+    "note": "passive_bid > 0 means resting a bid EARNS the half-spread even after the tape moves against you; <= 0 means it is eaten. The wide/tight split is the state-aware version."
+  },
+  "XAGUSD": {
+    "symbol": "XAGUSD",
+    "bars": 338833,
+    "span": [
+      "2025-11-20 02:00:00",
+      "2026-11-04 21:37:00"
+    ],
+    "median_spread_bp": 4.5924,
+    "horizons": {
+      "+1m": {
+        "gross": {
+          "n": 338832,
+          "mean_bp": 0.0005,
+          "t": 0.026,
+          "hit": 0.4995
+        },
+        "passive_bid": {
+          "n": 167183,
+          "mean_bp": -2.85609,
+          "t": -102.048,
+          "hit": 0.3293
+        },
+        "passive_offer": {
+          "n": 169251,
+          "mean_bp": -2.859,
+          "t": -108.424,
+          "hit": 0.3268
+        },
+        "passive_bid_wide": {
+          "n": 83486,
+          "mean_bp": -3.85482,
+          "t": -77.939,
+          "hit": 0.3099
+        },
+        "passive_bid_tight": {
+          "n": 83697,
+          "mean_bp": -1.85988,
+          "t": -71.978,
+          "hit": 0.3485
+        }
+      },
+      "+5m": {
+        "gross": {
+          "n": 338828,
+          "mean_bp": 0.00283,
+          "t": 0.068,
+          "hit": 0.5019
+        },
+        "passive_bid": {
+          "n": 167182,
+          "mean_bp": -2.70168,
+          "t": -44.506,
+          "hit": 0.4271
+        },
+        "passive_offer": {
+          "n": 169248,
+          "mean_bp": -2.70269,
+          "t": -46.386,
+          "hit": 0.4235
+        },
+        "passive_bid_wide": {
+          "n": 83486,
+          "mean_bp": -3.50346,
+          "t": -32.667,
+          "hit": 0.4227
+        },
+        "passive_bid_tight": {
+          "n": 83696,
+          "mean_bp": -1.90191,
+          "t": -33.398,
+          "hit": 0.4315
+        }
+      },
+      "+15m": {
+        "gross": {
+          "n": 338818,
+          "mean_bp": 0.00991,
+          "t": 0.138,
+          "hit": 0.5045
+        },
+        "passive_bid": {
+          "n": 167175,
+          "mean_bp": -2.71689,
+          "t": -26.135,
+          "hit": 0.4625
+        },
+        "passive_offer": {
+          "n": 169245,
+          "mean_bp": -2.73271,
+          "t": -27.363,
+          "hit": 0.4525
+        },
+        "passive_bid_wide": {
+          "n": 83486,
+          "mean_bp": -3.34004,
+          "t": -18.282,
+          "hit": 0.4679
+        },
+        "passive_bid_tight": {
+          "n": 83689,
+          "mean_bp": -2.09525,
+          "t": -21.059,
+          "hit": 0.457
+        }
+      },
+      "+30m": {
+        "gross": {
+          "n": 338803,
+          "mean_bp": 0.02196,
+          "t": 0.217,
+          "hit": 0.5057
+        },
+        "passive_bid": {
+          "n": 167168,
+          "mean_bp": -2.7259,
+          "t": -18.579,
+          "hit": 0.476
+        },
+        "passive_offer": {
+          "n": 169237,
+          "mean_bp": -2.75817,
+          "t": -19.468,
+          "hit": 0.465
+        },
+        "passive_bid_wide": {
+          "n": 83486,
+          "mean_bp": -3.21792,
+          "t": -12.487,
+          "hit": 0.4847
+        },
+        "passive_bid_tight": {
+          "n": 83682,
+          "mean_bp": -2.23505,
+          "t": -15.884,
+          "hit": 0.4673
+        }
+      }
+    },
+    "note": "passive_bid > 0 means resting a bid EARNS the half-spread even after the tape moves against you; <= 0 means it is eaten. The wide/tight split is the state-aware version."
+  },
+  "XTIUSD": {
+    "symbol": "XTIUSD",
+    "bars": 338374,
+    "span": [
+      "2025-11-19 23:00:00",
+      "2026-11-04 21:49:00"
+    ],
+    "median_spread_bp": 2.9499,
+    "horizons": {
+      "+1m": {
+        "gross": {
+          "n": 338373,
+          "mean_bp": 0.01185,
+          "t": 0.667,
+          "hit": 0.4615
+        },
+        "passive_bid": {
+          "n": 153099,
+          "mean_bp": -1.54536,
+          "t": -55.896,
+          "hit": 0.3796
+        },
+        "passive_offer": {
+          "n": 156147,
+          "mean_bp": -1.5639,
+          "t": -58.722,
+          "hit": 0.3931
+        },
+        "passive_bid_wide": {
+          "n": 79141,
+          "mean_bp": -1.79483,
+          "t": -37.349,
+          "hit": 0.3794
+        },
+        "passive_bid_tight": {
+          "n": 73958,
+          "mean_bp": -1.27841,
+          "t": -50.963,
+          "hit": 0.3797
+        }
+      },
+      "+5m": {
+        "gross": {
+          "n": 338369,
+          "mean_bp": 0.05933,
+          "t": 1.478,
+          "hit": 0.4889
+        },
+        "passive_bid": {
+          "n": 153096,
+          "mean_bp": -1.51726,
+          "t": -24.97,
+          "hit": 0.4547
+        },
+        "passive_offer": {
+          "n": 156147,
+          "mean_bp": -1.63247,
+          "t": -26.441,
+          "hit": 0.4517
+        },
+        "passive_bid_wide": {
+          "n": 79138,
+          "mean_bp": -1.73978,
+          "t": -16.71,
+          "hit": 0.4555
+        },
+        "passive_bid_tight": {
+          "n": 73958,
+          "mean_bp": -1.27916,
+          "t": -21.912,
+          "hit": 0.4538
+        }
+      },
+      "+15m": {
+        "gross": {
+          "n": 338359,
+          "mean_bp": 0.17827,
+          "t": 2.554,
+          "hit": 0.4998
+        },
+        "passive_bid": {
+          "n": 153089,
+          "mean_bp": -1.35186,
+          "t": -12.806,
+          "hit": 0.4822
+        },
+        "passive_offer": {
+          "n": 156144,
+          "mean_bp": -1.69746,
+          "t": -15.898,
+          "hit": 0.4676
+        },
+        "passive_bid_wide": {
+          "n": 79131,
+          "mean_bp": -1.47952,
+          "t": -8.226,
+          "hit": 0.484
+        },
+        "passive_bid_tight": {
+          "n": 73958,
+          "mean_bp": -1.21528,
+          "t": -11.742,
+          "hit": 0.4803
+        }
+      },
+      "+30m": {
+        "gross": {
+          "n": 338344,
+          "mean_bp": 0.35709,
+          "t": 3.609,
+          "hit": 0.505
+        },
+        "passive_bid": {
+          "n": 153083,
+          "mean_bp": -1.13762,
+          "t": -7.514,
+          "hit": 0.4933
+        },
+        "passive_offer": {
+          "n": 156138,
+          "mean_bp": -1.84221,
+          "t": -12.318,
+          "hit": 0.4726
+        },
+        "passive_bid_wide": {
+          "n": 79125,
+          "mean_bp": -1.16648,
+          "t": -4.519,
+          "hit": 0.4965
+        },
+        "passive_bid_tight": {
+          "n": 73958,
+          "mean_bp": -1.10675,
+          "t": -7.471,
+          "hit": 0.4899
+        }
+      }
+    },
+    "note": "passive_bid > 0 means resting a bid EARNS the half-spread even after the tape moves against you; <= 0 means it is eaten. The wide/tight split is the state-aware version."
+  }
+}
