@@ -10,6 +10,16 @@ Six registered families, ~2,300 hypotheses, **zero survivors** — including the
 candidates the MT5 spread data killed at their actual trading hours (copper −4.8 bp/trade,
 lead −15 to −26 bp/trade). No live-money candidates yet.**
 
+Three defects found in the inference layer itself and fixed, in severity order: the sector-level
+**pooled z was calibrated against an invalid null** (per-symbol permutation gave the null
+independence the real cross-section does not have — it "rejected" pure noise ~100% of the time, so
+the z = −6.07 equities headline is withdrawn); the **MT5 clock was a fixed UTC+3** while the broker
+follows US DST (UTC+2 in standard time), which mislabelled ~⅓ of the bars by an hour; and the
+replacement null then used a **whole-day permutation**, which cannot destroy a fixed clock-slot
+effect at all. What ships now is a day-level sign-flip null on a shared days × candidates P&L
+matrix — GPU GEMM, chunked for an 8 GB card, calibrated at alpha on correlated noise — and every
+universe has been re-run under it. See the withdrawals below for what survived.
+
 ## Why the framing
 
 A forecasting loss optimizes a conditional mean; whatever edge exists lives in tails and
@@ -216,8 +226,11 @@ src/noise_floor.py  selection-bias floor: E[max t] over N trials, validated
 src/registry.py     append-only hypothesis registry; evaluate-before-register raises
 src/costs.py        broker cost model (commission table, break-even spread)
 src/window_sweep.py family 1: session windows + null calibration + registry
+src/gpu_null.py     day-level sign-flip / block-bootstrap null on the days x candidates
+                    P&L matrix; numpy-BLAS and torch-CUDA GEMM backends, chunked for 8GB
 src/pooled_test.py  pre-registered pooled dollar-strength test (joint surrogate)
 src/pair_sweep.py   family 3: pair dislocation reversion (rolling beta/z, sequential sim)
+scripts/fxmetals_shared_grid.py  proves whether a grid-homogeneous subpanel exists for a universe
 scripts/first_look.py  end-to-end calibration smoke on real data
 scripts/cost_probe.py  edge vs costs by timeframe and move-size bucket
 scripts/tape_analysis.py  spread distributions from a live tape
@@ -236,7 +249,9 @@ python -m src.ingest                   # ~30s, writes data/parquet/ + manifest
 python -m src.noise_floor --years 5.9  # selection-bias floor table
 python -m scripts.first_look           # toy family vs surrogate null
 python -m scripts.cost_probe           # edge vs costs by timeframe and move-size bucket
-python -m src.window_sweep --worlds 200  # family 1: session windows (~30s)
+python -m src.window_sweep --worlds 200  # family 1: session windows (~30s, sign-flip null)
+python -m src.window_sweep --null-kind shared-intraday  # the bar-level null (needs a homogeneous grid)
+python -m src.window_sweep --null-kind block-bootstrap --null-block 5  # day-block bootstrap of demeaned P&L
 python -m src.pooled_test --worlds 200   # pre-registered dollar-strength re-test (~20s)
 python -m src.pair_sweep --worlds 200    # family 3: pair dislocations (~2 min)
 python -m scripts.tape_analysis          # analyze newest ../ctrader/tape/*.csv
@@ -502,8 +517,8 @@ crosses the daily break — with true-UTC labels the break sits at 21:00 (US sum
 season and the late entries change sample size materially (copper 18:00+2h: n 19 → 96).
 
 Sector-level re-run on the FX/metals universe (10 instruments, 200 worlds) — computed on the
-**uncorrected** clock, so its hour labels are stored-clock ones and ~32% of the bars behind
-them sat an hour off; kept as the pre-fix record:
+**uncorrected** clock with the superseded per-symbol null; kept only as the pre-fix record,
+which is why its percentiles look far stronger than anything below:
 
 | window | sector z | null p95 | percentile |
 |---|---|---|---|
@@ -511,6 +526,27 @@ them sat an hour off; kept as the pre-fix record:
 | 13:00 +1h | −2.97 | 2.21 | 99.0% |
 | 02:00 +1h | −2.87 | 2.00 | 99.0% |
 | 12:00 +2h | −2.39 | 2.09 | 98.0% |
+
+**Corrected re-run** (`artifacts/window_sweep_fxmetals_signflip.json`): DST-repaired bars and the
+day-level sign-flip null, which runs on this ragged panel with no common bar grid needed —
+that is what the bar-level null could never do here. The grid search that proves it
+(`scripts/fxmetals_shared_grid.py`, `artifacts/fxmetals_shared_grid_search.json`) found **no
+10-symbol homogeneous subpanel exists** at all (best: 3 symbols × 165 days; ≥10 symbols: 0 days),
+so the bar-level null cannot calibrate this universe's sector z and the table above had to be
+superseded rather than re-derived.
+
+| window | sector z | null p95 | percentile | n |
+|---|---|---|---|---|
+| 02:00 +2h | −3.81 | 5.01 | 88.5% | 10 |
+| 02:00 +4h | −3.72 | 4.05 | 90.5% | 10 |
+| 10:00 +2h | +3.07 | 3.22 | 93.0% | 10 |
+| 05:00 +1h | −2.81 | 4.79 | 79.0% | 10 |
+
+Family (scan-max over 68 windows): real max \|z\| **3.81** vs null scan-max p95 **8.05** →
+**14.5th percentile**. The correction makes the FX/metals sector effect *weaker*, not stronger:
+the strongest per-window row does not clear its own per-window null, and the family bar is far
+away. Candidate level is empty too, and every net-of-cost row is deeply negative (lead's
+35 bp cost against a ~0 bp gross edge).
 
 Priced as portfolios (`scripts/sector_test.py`):
 
@@ -524,11 +560,12 @@ Verdict across all three universes: equities show the largest real effect (the 1
 drift: every name is weakly negative — mean per-name t ≈ −0.6 with sd ≈ 1.0 across 105 names,
 which is what makes the pooled z large — but it fails the corrected sector null, 80.5th
 percentile of the null scan-max, so the published z = −6.07 was an artifact of the per-symbol
-null; see the withdrawal above) and the cost consumes it. FX/metals show the same
-shape at a third the magnitude and are also cost-consumed; their sector table above is on the
-uncorrected clock *and* the superseded null (their bar grid is ragged too, so a corrected
-re-run needs a grid-homogeneous subpanel). The pattern is consistent: microstructure effects
-at these horizons are real, small, and priced.
+null; see the withdrawal above) and the cost consumes it. FX/metals show the same shape at a
+third the magnitude and are also cost-consumed; with the sign-flip null on the corrected clock
+their family percentile is **14.5%**, so the earlier 98.5% reading is withdrawn with it. The
+pattern is consistent: microstructure effects at these horizons are real, small, and priced —
+and every universe has now been re-tested under a null that keeps the cross-section co-moving,
+which is the only calibration any of these z's ever meant.
 
 ## Event-driven study (calendar-triggered)
 
@@ -559,7 +596,12 @@ barriers apply — more symbols, cross-instrument replication, and the measured 
    log, not from memory.
 3. **Calibrate against a null that contains no holes.** A candidate's bar is the null-max
    distribution of the *same search procedure*, not zero. Block length is an explicit,
-   recorded choice sitting between the noise scale and the candidate horizon.
+   recorded choice sitting between the noise scale and the candidate horizon. Two
+   refinements the repo paid for: the null must **preserve what the real statistic
+   aggregates over** — the per-symbol permutation made correlated real t's face
+   independent null t's and "rejected" pure noise ~100% of the time; and the null must
+   **destroy exactly the hypothesis** — a whole-day permutation cannot kill a fixed
+   clock-slot effect when the effect is planted on the same bar of every day.
 4. **Every survivor needs a mechanism story and a measured cost model.** The cost model
    exists (8/8 symbols; break-even spread reported per candidate). No survivor has needed to
    pass it yet — three families, zero survivors, and that is the honest state.
@@ -568,13 +610,22 @@ barriers apply — more symbols, cross-instrument replication, and the measured 
 
 1. Analyze the live tape (`scripts/tape_analysis.py`) → per-symbol/hour spread distributions;
    wire measured spreads into `src/costs.py`, then re-rank the session-window near-misses.
+   (`artifacts/mt5_audit.json` now gives this for 115 symbols at true-UTC hours, but the
+   spread sinks are still per-candidate, not a predicted-cost model.)
 2. Symbol-holdout splits: select on 6 symbols, verify the same rule on 2 unseen ones.
-3. Project-level multiplicity: 645 hypotheses are registered; when a candidate survives its
+3. Project-level multiplicity: ~2,300 hypotheses are registered; when a candidate survives its
    family null, the registry is what lets the cross-family selection bias be priced
-   (White/Hansen style) instead of asserted away.
+   (White/Hansen style) instead of asserted away. It still carries no discovery/confirmation
+   role, data fingerprint or source tag, so project-level multiplicity is unpriced.
 4. Mask audited `anomalous_months` inside feature builders rather than dropping the series.
-5. Scale the factory: block-length policy per family, more worlds, full-world surrogates
-   with synthetic OHLC for path-dependent rules.
+5. Scale the null, not just the search: the sign-flip null's cost is one GEMM per chunk, so
+   worlds are nearly free — use them for per-candidate adjusted p-values (step-down over the
+   family) rather than a single family verdict, and for Storey-style π0 estimates of how much
+   non-null structure a whole panel contains.
+6. Model what is predictable: cost. Every edge this project has found concentrates where
+   spreads are widest; with ~430M ticks a spread/fill-cost model (hour, volatility regime,
+   tick rate, recent spread) is the one target with real signal, and the GEMM null gives the
+   honest bar for the rest.
 
 ## Field notes
 
