@@ -522,8 +522,16 @@ def main() -> None:
                 try:
                     ts = pd.read_parquet(pq, columns=["ts"])["ts"]
                     have = (ts.iloc[-1] - ts.iloc[0]).days
-                    want = (pd.Timestamp(state["until"]) - pd.Timestamp(state["start"])).days
-                    ok = have >= 0.8 * want
+                    # the state's own window: `start` is absent on files written by the
+                    # current ingest (it records next_from/until), so fall back to the
+                    # parquet's own first bar rather than silently dropping the symbol.
+                    want_key = "start" if "start" in state else None
+                    want = (
+                        (pd.Timestamp(state["until"]) - pd.Timestamp(state[want_key])).days
+                        if want_key
+                        else have
+                    )
+                    ok = want <= 0 or have >= 0.8 * want
                 except (KeyError, ValueError, FileNotFoundError):
                     ok = False
             (done if ok else empty).append(state["symbol"])
