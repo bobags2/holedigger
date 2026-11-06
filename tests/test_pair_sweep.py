@@ -55,10 +55,38 @@ def test_simulate_handcrafted() -> None:
     beta = np.ones(7)
     z = np.array([0.0, 0.0, 2.5, 2.0, 0.2, 0.0, 0.0])
     tr = simulate_pair(la, lb, beta, z, z_entry=2.0, z_exit=0.3)
-    # entry at bar 2 (z=2.5), exit at first |z|<=0.3 after entry -> bar 4 (z=0.2)
-    assert list(tr["entry"]) == [2] and list(tr["exit"]) == [4], (tr["entry"], tr["exit"])
-    # short the spread: pnl = -(la[4]-la[2]) = -(0.0015-0.002) = +0.0005
-    assert np.isclose(tr["pnl"][0], 5e-4), tr["pnl"]
+    # signal at bar 2 (z=2.5) but the entry is the NEXT bar's close: bar 3. Exit at the
+    # first |z|<=0.3 after the signal -> bar 4 (z=0.2). Entering at the signal bar's own
+    # close would book P&L the trade could not have earned.
+    assert list(tr["entry"]) == [3] and list(tr["exit"]) == [4], (tr["entry"], tr["exit"])
+    # short the spread at the tradable price: -(la[4]-la[3]) = -(0.0015-0.0022) = +0.0007
+    assert np.isclose(tr["pnl"][0], 7e-4), tr["pnl"]
+
+
+def test_entry_is_never_the_signal_bar() -> None:
+    """No trade may enter on the bar whose close generated its own signal."""
+    rng = np.random.default_rng(0)
+    n = 4000
+    a = np.cumsum(rng.standard_normal(n) * 1e-4)
+    b = np.cumsum(rng.standard_normal(n) * 1e-4)
+    beta = np.full(n, 1.0)
+    z = (a - b) / 1e-3
+    tr = simulate_pair(a, b, beta, z, z_entry=3.0, z_exit=0.5)
+    ent, ex = tr["entry"], tr["exit"]
+    assert len(ent) > 5, len(ent)
+    # every entry is strictly after its signal bar, and every exit after its entry
+    sig = np.flatnonzero(np.abs(z) >= 3.0)
+    for e in ent:
+        assert np.any(sig < e), f"entry {e} is not after any signal bar"
+        assert e >= sig.min()
+    assert (ex > ent).all()
+    assert (np.diff(ent, prepend=-1) > 0).all(), "entries must be strictly increasing"
+    # each entry is after ITS signal: the signal bar is the first bar at/with |z|>=3
+    # scanning back from the entry. If any entry is itself the first signal bar, the
+    # trade would be booking its own signal.
+    for e in ent:
+        back = np.flatnonzero(np.abs(z[:e]) >= 3.0)
+        assert len(back) and back.max() < e, f"entry {e} has no earlier signal bar"
 
 
 def test_parse_pairs() -> None:

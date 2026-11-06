@@ -459,6 +459,38 @@ def test_entry_tolerance_excludes_late_entry_days() -> None:
         assert int(v1.sum()) == int(v0.sum()), sym
 
 
+def test_commission_per_side_assumption_is_pinned() -> None:
+    """The per-side vs round-turn assumption doubles every round-trip cost.
+
+    ``PER_SIDE = True`` assumes the broker's quoted USD/lot figures are per side (the
+    cTrader convention) and doubles them. If the quotes are really round-turn, every
+    candidate's cost halves. Pinned so a change to the table or the flag is a visible diff
+    rather than a silent one, and so the sensitivity is on record: for EURUSD the round
+    trip is 0.4564bp at PER_SIDE=True versus 0.2282bp with it off, which is material for
+    any sub-1bp verdict - the event study's withdrawn +2.0bp lead sat just above that line.
+    """
+    rt = costs.commission_round_trip_bp("EURUSD", 1.1)
+    one_side = costs.COMMISSION_PER_LOT["EURUSD"] / (costs.LOT_UNITS["EURUSD"] * 1.1) * 1e4
+    assert costs.PER_SIDE is True, "PER_SIDE changed: every cost in every artifact halved/doubled"
+    assert abs(rt - 2 * one_side) < 1e-9, (rt, one_side)
+    assert abs(rt - 0.4564) < 5e-4, rt      # the reference value, pinned
+    # and the flag still works as the documented escape hatch
+    saved = costs.PER_SIDE
+    try:
+        costs.PER_SIDE = False
+        assert abs(costs.commission_round_trip_bp("EURUSD", 1.1) - one_side) < 1e-9
+    finally:
+        costs.PER_SIDE = saved
+
+
+def test_zero_commission_symbols_are_spread_only() -> None:
+    """Zero-commission symbols (XTIUSD, indices) pay spread only, and that is stated."""
+    for sym in ("XTIUSD", "US500", "NAS100", "USDX"):
+        assert costs.commission_round_trip_bp(sym, 100.0) == 0.0, sym
+    # gold has the largest per-side commission in the table
+    assert costs.COMMISSION_PER_LOT["XAUUSD"] == max(costs.COMMISSION_PER_LOT.values())
+
+
 def main() -> None:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

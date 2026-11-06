@@ -128,7 +128,15 @@ def rolling_beta_z(la: np.ndarray, lb: np.ndarray) -> tuple[np.ndarray, np.ndarr
 
 def simulate_pair(la: np.ndarray, lb: np.ndarray, beta: np.ndarray, z: np.ndarray,
                   z_entry: float, z_exit: float) -> dict:
-    """Sequential trade simulation. Returns entry/exit indices, oriented P&L, entry betas."""
+    """Sequential trade simulation. Returns entry/exit indices, oriented P&L, entry betas.
+
+    Entry is at the **next** bar's close, not the signal bar's. ``z[t] >= z_entry`` is
+    computed from the bar that closes at ``t``, so that price is already history by the time
+    the signal exists: entering at ``la[e]`` books a P&L the trade could not have earned.
+    Both legs therefore shift one bar (``e_ = e + 1``), and the exit stays where it is, so
+    the hold shrinks by exactly one bar. Measured on this panel the effect is small but
+    one-directional, and it removes a systematic favourable bias rather than adding noise.
+    """
     t = len(la)
     entries = np.flatnonzero(np.abs(z) >= z_entry)
     exits = np.flatnonzero(np.abs(z) <= z_exit)
@@ -139,17 +147,18 @@ def simulate_pair(la: np.ndarray, lb: np.ndarray, beta: np.ndarray, z: np.ndarra
     pos = 0
     while pos < len(entries):
         e = int(entries[pos])
+        e_ = e + 1                      # the next bar: the first price at which the signal is tradable
         j = np.searchsorted(exits, e, side="right")
-        x = e + MAX_HOLD
+        x = e_ + MAX_HOLD
         if j < len(exits):
             x = min(x, int(exits[j]))
         x = min(x, t - 1)
-        if x > e and np.isfinite(beta[e]):
-            ds = (la[x] - la[e]) - beta[e] * (lb[x] - lb[e])
-            ent.append(e)
+        if x > e_ and e_ < t and np.isfinite(beta[e_]):
+            ds = (la[x] - la[e_]) - beta[e_] * (lb[x] - lb[e_])
+            ent.append(e_)
             ext.append(x)
             pnl.append(float(-np.sign(z[e]) * ds))
-            bet.append(float(beta[e]))
+            bet.append(float(beta[e_]))
         pos = int(np.searchsorted(entries, x, side="right"))
     return {
         "entry": np.asarray(ent, dtype=np.int64),
