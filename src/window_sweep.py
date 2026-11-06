@@ -11,6 +11,14 @@ with no time-of-day structure. Costs come from src/costs.py; the headline number
 ``break_even_spread_bp`` = gross edge - commission, i.e. how much spread the candidate can
 pay per round trip and still break even.
 
+``null_kind`` selects the null. ``auto`` (the default) is the shared-intraday world — one
+day order and one intraday slot order applied to every symbol — with the per-symbol
+fallback on a ragged panel. ``sign-flip`` and ``block-bootstrap`` are the day-level nulls
+of ``src.gpu_null``: one shared days x candidates matrix of realised P&L, acted on by one
+sign per day (or by resampled day blocks). They handle ragged panels — invalid cells are
+zeros and cannot move — and their real statistic is computed from the same matrix, so a
+candidate's null statistic cannot drift from its real t.
+
 Discipline: every candidate is registered in the hypothesis registry before evaluation.
 
 Usage::
@@ -27,7 +35,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import config, costs, mt5_clock, noise_floor
+from . import config, costs, gpu_null, mt5_clock, noise_floor
 from .registry import Registry
 from .surrogates import stationary_bootstrap_indices
 
@@ -217,7 +225,17 @@ def run_sweep(
     n_worlds: int,
     seed: int = config.SEED,
     allow_shared_world: bool = True,
+    null_kind: str = "auto",
+    null_options: dict | None = None,
 ) -> dict:
+    """One sweep under one null. ``null_kind``: auto | sign-flip | block-bootstrap.
+
+    ``null_options`` is forwarded to the day-level nulls (``src.gpu_null``): ``chunk``,
+    ``backend`` ("auto"/"numpy"/"torch"), ``dtype``, ``max_bytes``, ``stat`` and, for the
+    block bootstrap, ``mean_block`` (days).
+    """
+    if null_kind not in ("auto", "shared-intraday", "per-symbol", "sign-flip", "block-bootstrap"):
+        raise ValueError(f"unknown null_kind {null_kind!r}")
     rng = np.random.default_rng(seed)
     syms = list(series)
     n_win = len(windows)
@@ -255,24 +273,64 @@ def run_sweep(
     # is significant on pure noise. The shared path needs every symbol on one bar grid;
     # on ragged panels (different histories, missing minutes) fall back to the per-symbol
     # permutation and say so in the result.
-    shared_ok = allow_shared_world and _shared_day_grid_ok(series)
-    null_kind = "shared-intraday" if shared_ok else "per-symbol"
-
-    null_t = np.empty((n_worlds, len(syms) * n_win))
-    for w in range(n_worlds):
-        if shared_ok:
-            masks = intraday_slot_null_masks(series, rng)
-            for i, sym in enumerate(syms):
-                null_t[w, i * n_win : (i + 1) * n_win] = _t_of(series[sym], seg[sym], masks[sym])
+    #
+    # The day-level nulls (``sign-flip`` / ``block-bootstrap``) act on one shared days x
+    # candidates matrix of realised P&L instead. Invalid cells are 0.0, so raggedness
+    # stops mattering, and the real statistic is recomputed from that same matrix: real
+    # and null worlds are one function of one panel, with the deviation from the
+    # bar-level ``window_stats`` measured into ``null_info`` rather than assumed away.
+    null_info = None
+    if null_kind == "auto":
+        # The day-level sign-flip null is the default: it runs on ragged panels (invalid
+        # cells are 0.0 with a valid mask, so no common bar grid is needed), it preserves
+        # cross-candidate and cross-day co-movement, and its false-positive rate is
+        # calibrated at ~alpha on correlated noise (measured 4% at rho 0.3/0.5/0.7 in
+        # tests). The bar-level shared-intraday null needs a homogeneous grid and falls
+        # back to the invalid per-symbol null on panels like the 105-name equities set.
+        # ``allow_shared_world=False`` still pins the bar-level per-symbol path, which is
+        # what the regression test that documents its over-rejection uses.
+        null_kind = "per-symbol" if not allow_shared_world else "sign-flip"
+    if null_kind in ("sign-flip", "block-bootstrap"):
+        panel = gpu_null.day_pnl_panel(
+            {sym: _day_structure(s)[0] for sym, s in series.items()},
+            {sym: pnl_matrix(np.cumsum(s.r), *seg[sym]) for sym, s in series.items()},
+            syms,
+            windows,
+        )
+        t_bar = np.concatenate([real_t[sym] for sym in syms])
+        if null_kind == "sign-flip":
+            run = gpu_null.sign_flip_null(panel, n_worlds, rng, **(null_options or {}))
         else:
-            col = 0
-            for sym, s in series.items():
-                r_sh = s.r.copy()
-                r_sh[1:] = s.r[1:][stationary_bootstrap_indices(len(s.r) - 1, 1.0, rng)]
-                pnl = pnl_matrix(np.cumsum(r_sh), *seg[sym])
-                _, t, _ = window_stats(pnl)
-                null_t[w, col : col + n_win] = t
-                col += n_win
+            run = gpu_null.block_bootstrap_null(panel, n_worlds, rng, **(null_options or {}))
+        null_t = run.t
+        null_info = run.info()
+        panel_mean, panel_t, panel_n = gpu_null.real_moments(panel)
+        for i, sym in enumerate(syms):
+            sl = slice(i * n_win, (i + 1) * n_win)
+            real_mean[sym], real_t[sym], real_n[sym] = panel_mean[sl], panel_t[sl], panel_n[sl]
+        with np.errstate(invalid="ignore"):
+            dev = np.abs(np.concatenate([real_t[sym] for sym in syms]) - t_bar)
+        dev_max = float(np.nanmax(dev)) if dev.size and np.isfinite(dev).any() else np.nan
+        null_info["real_t_max_abs_diff_vs_window_stats"] = dev_max if np.isfinite(dev_max) else None
+    else:
+        shared_ok = null_kind != "per-symbol" and allow_shared_world and _shared_day_grid_ok(series)
+        null_kind = "shared-intraday" if shared_ok else "per-symbol"
+
+        null_t = np.empty((n_worlds, len(syms) * n_win))
+        for w in range(n_worlds):
+            if shared_ok:
+                masks = intraday_slot_null_masks(series, rng)
+                for i, sym in enumerate(syms):
+                    null_t[w, i * n_win : (i + 1) * n_win] = _t_of(series[sym], seg[sym], masks[sym])
+            else:
+                col = 0
+                for sym, s in series.items():
+                    r_sh = s.r.copy()
+                    r_sh[1:] = s.r[1:][stationary_bootstrap_indices(len(s.r) - 1, 1.0, rng)]
+                    pnl = pnl_matrix(np.cumsum(r_sh), *seg[sym])
+                    _, t, _ = window_stats(pnl)
+                    null_t[w, col : col + n_win] = t
+                    col += n_win
 
     edge_bp = np.concatenate([real_mean[sym] for sym in syms]) * 1e4
     t_real = np.concatenate([real_t[sym] for sym in syms])
@@ -430,6 +488,15 @@ def main() -> None:
     ap.add_argument("--mt5-done", action="store_true",
                     help="run on every symbol whose MT5 ingest state is complete")
     ap.add_argument("--worlds", type=int, default=200)
+    ap.add_argument("--null-kind", default="auto",
+                    choices=["auto", "shared-intraday", "per-symbol", "sign-flip", "block-bootstrap"],
+                    help="null family: sign-flip/block-bootstrap act on the shared days x candidates "
+                         "P&L matrix (src/gpu_null.py) and run on ragged panels; auto currently "
+                         "resolves to the bar-level shared-intraday null")
+    ap.add_argument("--null-block", type=float, default=None,
+                    help="block length in days for --null-kind block-bootstrap (default gpu_null.DEFAULT_BOOTSTRAP_DAYS)")
+    ap.add_argument("--null-backend", default=None, choices=["auto", "numpy", "torch"],
+                    help="GEMM backend for the day-level nulls (default: torch when CUDA is available)")
     ap.add_argument("--source", choices=["ctrader", "mt5"], default="ctrader",
                     help="ctrader mid parquet, or MT5 tick-derived parquet with per-bar spreads")
     ap.add_argument("--out", type=Path, default=config.ARTIFACTS_DIR / "window_sweep.json")
@@ -479,7 +546,18 @@ def main() -> None:
                 generator_version="1",
             )
 
-    result = run_sweep(series, windows, args.worlds)
+    null_options = {}
+    if args.null_block is not None:
+        null_options["mean_block"] = args.null_block
+    if args.null_backend is not None:
+        null_options["backend"] = args.null_backend
+    result = run_sweep(
+        series,
+        windows,
+        args.worlds,
+        null_kind=args.null_kind,
+        null_options=null_options or None,
+    )
 
     for row in result["candidates"]:
         hid = reg.register(
