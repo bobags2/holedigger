@@ -82,14 +82,20 @@ def reality_check(
     instead of sign flips, for panels whose columns are serially dependent.
     """
     rng = np.random.default_rng(0) if rng is None else rng
-    # the equal-weight portfolio: one column, each day's value the mean across candidates
+    # the equal-weight portfolio: one column, each day's value the mean across the
+    # candidates observed THAT day (a day with no observation carries no portfolio value,
+    # so it must not be averaged as a zero)
+    with np.errstate(invalid="ignore"):
+        with np.warnings.catch_warnings():
+            # a day with no observed candidate is expected (weekends, holidays); the NaN it
+            # produces is handled by port_ok below, so the warning is noise
+            np.warnings.simplefilter("ignore", RuntimeWarning)
+            row_mean = np.where(panel.valid, panel.pnl, np.nan)
+            port_val = np.nanmean(row_mean, axis=1, keepdims=True)
+    port_ok = np.isfinite(port_val)
     port = gpu_null.DayPanel(
-        panel.days, ("portfolio",), ((0, 1),),
-        np.nanmean(np.where(panel.valid, panel.pnl, np.nan), axis=1, keepdims=True),
-        np.isfinite(
-            np.nanmean(np.where(panel.valid, panel.pnl, np.nan), axis=1, keepdims=True)
-        ),
-        panel.demean,
+        panel.days[port_ok[:, 0]], ("portfolio",), ((0, 1),),
+        np.where(port_ok, port_val, 0.0), port_ok, panel.demean,
     )
     real_t = float(gpu_null.real_moments(port)[1][0])
 
