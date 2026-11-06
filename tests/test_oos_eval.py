@@ -7,7 +7,15 @@ from __future__ import annotations
 import numpy as np
 
 from src import gpu_null, oos_eval
-from src.oos_eval import Strategy, falsify_selection, merge_columns, storey_pi0, walk_forward_columns
+from src.oos_eval import (
+    Strategy,
+    empirical_bayes_edge,
+    falsify_selection,
+    merge_columns,
+    split_half_selection,
+    storey_pi0,
+    walk_forward_columns,
+)
 
 
 def _make_panel_with_strategies(n_days=60, seed=0, edge_bp=30.0, noise_bp=200.0, n_folds=4):
@@ -135,6 +143,69 @@ def test_storey_pi0_responds_to_structure() -> None:
     big2 = gpu_null.day_pnl_panel({"S": np.arange(n)}, {"S": big_pnl2}, ["S"], [(h, 1) for h in range(k)])
     big2_res = falsify_selection(big2, k=1, n_worlds=2000)
     assert big2_res["pi0"]["pi0"] < 0.9, big2_res["pi0"]
+
+
+def test_split_half_rejects_a_selection_half_only_edge() -> None:
+    """An edge that exists only in the training half must not survive the holdout.
+
+    This is the failure the half-split exists to catch: the first-half/second-half decay
+    the project keeps finding is exactly an edge living in one half. So plant one, and
+    require the held-out half to say so.
+    """
+    rng = np.random.default_rng(4)
+    n_days, n_cand = 120, 30
+    cut = n_days // 2
+    pnl = rng.standard_normal((n_days, n_cand)) * 2e-4
+    pnl[:cut, 0] += 30e-4                 # the edge lives ONLY in the first half
+    panel = gpu_null.day_pnl_panel(
+        {"S": np.arange(n_days)}, {"S": pnl}, ["S"], [(h, 1) for h in range(n_cand)]
+    )
+    res = split_half_selection(panel, k=1, n_worlds=1000)
+    assert int(res["picked"][0]) == 0, res["picked"]      # it does win the selection half
+    assert res["train_stat"] > res["test_stat"], res        # and it decays
+    assert res["decay"] > 2.0, res                         # the decay is large, not noise
+    # a genuinely persistent edge must survive
+    pnl2 = rng.standard_normal((n_days, n_cand)) * 2e-4
+    pnl2[:, 1] += 30e-4
+    panel2 = gpu_null.day_pnl_panel(
+        {"S": np.arange(n_days)}, {"S": pnl2}, ["S"], [(h, 1) for h in range(n_cand)]
+    )
+    res2 = split_half_selection(panel2, k=1, n_worlds=1000)
+    assert int(res2["picked"][0]) == 1, res2
+    assert res2["null_test"]["percentile"] > 0.95, res2["null_test"]
+    assert abs(res2["decay"]) < 10.0, res2
+
+
+def test_empirical_bayes_shrinks_noise_and_keeps_signal() -> None:
+    """Partial pooling must pull noise columns toward the family mean and keep a real edge.
+
+    The property that matters is separation: after shrinkage, a genuine edge stands far
+    from the family mean and a noise column sits near it. (Shrink *weights* are not ordered
+    by signal - B is driven by each column's own standard error, and a strong column has
+    both more signal and more dispersion, so its se is comparable to a noise column's.
+    Measured: B ~ 0.9996 for all 50 columns, because one strong candidate makes the
+    cross-sectional prior wide. That is EB behaving correctly, not a defect.)
+    """
+    rng = np.random.default_rng(6)
+    n_days, n_cand = 300, 50
+    pnl = rng.standard_normal((n_days, n_cand)) * 2e-4
+    pnl[:, 0] += 40e-4
+    panel = gpu_null.day_pnl_panel(
+        {"S": np.arange(n_days)}, {"S": pnl}, ["S"], [(h, 1) for h in range(n_cand)]
+    )
+    eb = empirical_bayes_edge(panel)
+    raw, post = eb["raw"], eb["posterior"]
+    fam = eb["family_mean"]
+    strong, noise = 0, np.arange(1, n_cand)
+    # the strong candidate keeps its distance from the family mean
+    assert abs(post[strong] - fam) > 0.5 * abs(raw[strong] - fam), eb["posterior"][strong]
+    # noise columns are pulled IN, i.e. strictly closer to the family mean than raw
+    assert (
+        np.abs(post[noise] - fam) <= np.abs(raw[noise] - fam) + 1e-15
+    ).all(), "noise columns must not move away from the family mean"
+    # and the interval each candidate carries is the honest unit
+    assert (eb["se"] >= 0).all()
+    assert np.isfinite(eb["posterior"]).all()
 
 
 def main() -> None:

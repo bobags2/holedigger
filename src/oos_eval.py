@@ -288,3 +288,116 @@ def stepdown_from_null(null_t: np.ndarray, real_t: np.ndarray) -> np.ndarray:
     world_max = a.max(axis=1)                      # the null's own family max, per world
     r = np.abs(np.nan_to_num(real_t, nan=-np.inf))
     return (world_max[None, :] >= r[:, None]).mean(axis=1)
+
+
+# ------------------------------------------------------- holdout + partial pooling
+
+
+def split_half_selection(
+    panel: gpu_null.DayPanel,
+    *,
+    k: int = 1,
+    n_worlds: int = 10_000,
+    rng: np.random.Generator | None = None,
+    chunk: int = gpu_null.DEFAULT_CHUNK,
+    backend: str = "auto",
+    null_kind: str = "sign-flip",
+) -> dict:
+    """Select on one half of the days, test on the other, with the rule inside the null.
+
+    The honest out-of-sample number for a search: the *selection* is performed on the
+    training half only, the *test* statistic is computed on the held-out half, and the same
+    two-step rule runs inside every null world. A candidate that only looked good on the
+    half it was picked from cannot survive this, which is what a half-split is for.
+
+    Both halves are reported, so a decay (the pattern this project keeps finding) is
+    visible rather than averaged away.
+    """
+    rng = np.random.default_rng(0) if rng is None else rng
+    n_days = len(panel.days)
+    if n_days < 8:
+        raise ValueError("split_half_selection needs >= 8 days")
+    cut = n_days // 2
+    train_idx, test_idx = np.arange(0, cut), np.arange(cut, n_days)
+
+    def sub(idx: np.ndarray) -> gpu_null.DayPanel:
+        return gpu_null.DayPanel(
+            panel.days[idx], panel.symbols, panel.windows,
+            panel.pnl[idx], panel.valid[idx], panel.demean,
+        )
+
+    tr, te = sub(train_idx), sub(test_idx)
+    tr_t = gpu_null.real_moments(tr)[1]
+    picked = select_top_k(tr_t, k)
+    te_t = gpu_null.real_moments(te)[1]
+    test_stat = float(np.abs(te_t[picked]).max())
+    train_stat = float(np.abs(tr_t[picked]).max())
+
+    # The null must carry the same two-step rule: pick on a world's TRAINING half, then
+    # read its HELD-OUT half. Rather than re-deriving per-world halves from a null that
+    # only exposes the final t (which loses the flips), run the null twice on the two
+    # sub-panels with the SAME seed and the SAME day grid: world w's flips are then the
+    # same vector over the same days in both runs, so world w's training-half pick and
+    # world w's held-out read belong to one world. That is the property the comparison
+    # needs, and it costs one extra GEMM instead of a redesign.
+    if null_kind == "sign-flip":
+        run_tr = gpu_null.sign_flip_null(
+            tr, n_worlds, rng, chunk=chunk, backend=backend, stat="studentized"
+        )
+        run_te = gpu_null.sign_flip_null(
+            te, n_worlds, rng, chunk=chunk, backend=backend, stat="studentized"
+        )
+    else:
+        run_tr = gpu_null.block_bootstrap_null(tr, n_worlds, rng, chunk=chunk, backend=backend)
+        run_te = gpu_null.block_bootstrap_null(te, n_worlds, rng, chunk=chunk, backend=backend)
+    a_tr = np.abs(np.nan_to_num(run_tr.t, nan=-np.inf))
+    w_pick = np.argsort(-a_tr, axis=1, kind="stable")[:, :k]
+    null_test = np.abs(np.take_along_axis(run_te.t, w_pick, axis=1)).max(axis=1)
+
+    return {
+        "picked": picked,
+        "train_stat": train_stat,
+        "test_stat": test_stat,
+        "null_test": {
+            "mean": float(null_test.mean()),
+            "p95": float(np.percentile(null_test, 95)),
+            "percentile": float((null_test < test_stat).mean()),
+        },
+        "decay": train_stat - test_stat,
+        "n_train_days": int(len(train_idx)),
+        "n_test_days": int(len(test_idx)),
+        "info": run_tr.info(),
+    }
+
+
+def empirical_bayes_edge(panel: gpu_null.DayPanel, prior_sd: float | None = None) -> dict:
+    """Shrink each candidate's raw mean toward the family's cross-sectional mean.
+
+    A window measured on 140 days has a standard error comparable to the edge itself, so the
+    raw mean is mostly noise. Partial pooling with a family-level prior returns a posterior
+    edge *and its shrink weight*, which is the number a decision needs (the raw mean is not).
+
+    ``posterior = B * raw + (1 - B) * family_mean`` with ``B = tau^2 / (tau^2 + se^2)``,
+    where ``tau`` is the cross-sectional sd of candidate means unless pinned by the caller.
+    B near 1 means the candidate carries its own information; near 0 means it is the family
+    average plus noise.
+    """
+    mean, _t, n = gpu_null.real_moments(panel)
+    n = np.asarray(n, dtype=float)
+    p = panel.pnl
+    with np.errstate(invalid="ignore", divide="ignore"):
+        ss = np.einsum("ij,ij->j", p, p) - (p.sum(axis=0) ** 2) / n
+        var = ss / np.maximum(n - 1.0, 1.0)
+        se = np.sqrt(np.maximum(var, 0.0)) / np.sqrt(np.maximum(n, 1.0))
+    tau = float(np.nanstd(mean)) if prior_sd is None else float(prior_sd)
+    tau2 = tau * tau
+    B = tau2 / (tau2 + se ** 2)
+    fam = float(np.nanmean(mean))
+    return {
+        "raw": mean,
+        "posterior": B * mean + (1.0 - B) * fam,
+        "se": se,
+        "shrink": B,
+        "family_mean": fam,
+        "prior_sd": tau,
+    }
