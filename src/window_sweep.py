@@ -35,7 +35,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import config, costs, gpu_null, mt5_clock, noise_floor
+from . import config, cost_model, costs, gpu_null, mt5_clock, noise_floor
 from .registry import DISCOVERY, Registry, data_fingerprint
 from .surrogates import stationary_bootstrap_indices
 
@@ -278,6 +278,24 @@ def _mean_intraday_bar_return(s: "Series") -> float:
     return float(intraday.mean())
 
 
+def _panel_frame(s: "Series") -> "pd.DataFrame":
+    """A Series rebuilt as a bar frame the cost model's feature builder understands.
+
+    ``s.r[j]`` is the return INTO bar j, so the bar's own price level is the cumulative sum
+    of r up to and including j. The frame is for the cost model's features only (hour, tick
+    count, bar range) plus the spread it predicts - the level is reconstructed so the model
+    sees the same volatility features it was fitted with, and the spread column carries the
+    measured per-bar spread so the lag feature is the real one.
+    """
+    level = np.exp(np.cumsum(s.r))
+    return pd.DataFrame({
+        "ts": pd.to_datetime(s.bar_time, unit="ns"),
+        "open": level, "high": level, "low": level, "close": level,
+        "tick_n": np.full(len(level), 1),
+        "spread_med_bp": s.spread_bp if s.spread_bp is not None else np.zeros(len(level)),
+    })
+
+
 def run_sweep(
     series: dict[str, Series],
     windows: list[tuple[int, int]],
@@ -286,8 +304,13 @@ def run_sweep(
     allow_shared_world: bool = True,
     null_kind: str = "auto",
     null_options: dict | None = None,
+    learned_cost: bool = False,
 ) -> dict:
     """One sweep under one null. ``null_kind``: auto | sign-flip | block-bootstrap.
+
+    ``learned_cost`` fits ``src.cost_model`` per symbol and records the PREDICTED cost at
+    each trade's entry bar alongside the measured one (the ex-ante question "should I trade
+    at all", which the measured spread at exit cannot answer).
 
     ``null_options`` is forwarded to the day-level nulls (``src.gpu_null``): ``chunk``,
     ``backend`` ("auto"/"numpy"/"torch"), ``dtype``, ``max_bytes``, ``stat`` and, for the
@@ -310,6 +333,13 @@ def run_sweep(
     for sym, s in series.items():
         if s.spread_bp is None:
             continue
+        # The learned cost model, when requested with --learned-cost, is fitted on the
+        # symbol's own history and used for the ex-ante question only; the ex-post net
+        # accounting keeps using the measured spread at the trade's own bars.
+        cost_pred: np.ndarray | None = None
+        if learned_cost:
+            m = cost_model.fit_cost_model(sym)
+            cost_pred = m.predict_cost(_panel_frame(s))
         a, b, valid = seg[sym]
         S = np.cumsum(s.r)
         for wi, (h, d) in enumerate(windows):
@@ -334,10 +364,17 @@ def run_sweep(
                 sgn = np.sign(gross.mean())
             net_oos = sgn * gross[second] - cost[second]
             net_full = sgn * gross - cost
+            # ex-post accounting uses the MEASURED spread at the trade's own entry and exit
+            # bars - that is ground truth and nothing predicted can beat it. The learned
+            # cost model is for the ex-ante question the sweep cannot answer from the bars:
+            # "given the state right now, is this trade's expected cost below the edge?".
+            # ``cost_at_entry`` is the predicted half-spread at entry, and it is recorded
+            # per candidate so a filter can be applied to the ranked list.
             net_by_key[(sym, h, d)] = {
                 "net_edge_bp": float(net_full.mean()),
                 "net_t": _tstat_of(net_full),
                 "cost_bp": float(cost.mean()),
+                "predicted_cost_at_entry_bp": float(np.mean(cost_pred[e])) if len(e) else None,
                 "oos_net_edge_bp": float(net_oos.mean()) if len(net_oos) else None,
                 "oos_net_t": _tstat_of(net_oos) if len(net_oos) > 4 else None,
                 "oos_n": int(len(second)),
@@ -537,6 +574,12 @@ def run_sweep(
                 "net_spread_edge_bp": None if nb is None else nb["net_edge_bp"],
                 "net_spread_t": None if nb is None else nb["net_t"],
                 "avg_half_spread_cost_bp": None if nb is None else nb["cost_bp"],
+                # the ex-ante learned cost at the trade's entry bar (see run_sweep's
+                # ``learned_cost``); the measured cost above stays the accounting number.
+                "predicted_cost_at_entry_bp": (
+                    None if nb is None or nb["predicted_cost_at_entry_bp"] is None
+                    else round(nb["predicted_cost_at_entry_bp"], 4)
+                ),
                 # direction chosen on the first half, evaluated on the second: the honest
                 # out-of-sample counterpart to net_spread_*, plus the in-sample figure the
                 # old code quoted, so the size of the bias is visible in every artifact.
@@ -611,6 +654,8 @@ def main() -> None:
                     help="block length in days for --null-kind block-bootstrap (default gpu_null.DEFAULT_BOOTSTRAP_DAYS)")
     ap.add_argument("--null-backend", default=None, choices=["auto", "numpy", "torch"],
                     help="GEMM backend for the day-level nulls (default: torch when CUDA is available)")
+    ap.add_argument("--learned-cost", action="store_true",
+                    help="fit src.cost_model per symbol and record the predicted entry cost")
     ap.add_argument("--source", choices=["ctrader", "mt5"], default="ctrader",
                     help="ctrader mid parquet, or MT5 tick-derived parquet with per-bar spreads")
     ap.add_argument("--out", type=Path, default=config.ARTIFACTS_DIR / "window_sweep.json")
@@ -682,6 +727,7 @@ def main() -> None:
         args.worlds,
         null_kind=args.null_kind,
         null_options=null_options or None,
+        learned_cost=args.learned_cost,
     )
 
     for row in result["candidates"]:
