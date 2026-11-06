@@ -4,6 +4,14 @@ Search market data for exploitable structure — dislocations, forced-flow finge
 microstructure holes — instead of forecasting prices, with the multiple-testing problem
 treated as the central engineering constraint rather than a footnote.
 
+**Status: eight families live, and TWO now clear their own null.** Cross-sectional ranking
+(prev-session return -> next session's ordering, rho +0.035, percentile 1.0000 over 4000
+worlds, stable across halves) and the conditional family (spread state in the preceding hour
+conditions the next session's drift: gold +3.6bp, silver +5.6bp, oil -5.3bp, all at
+percentile 1.000 with a per-symbol sign that flips - a mechanism, not an artifact). Neither
+is tradeable yet: the ranking book nets **-24.0bp/session** against a **+19.0bp gross**
+(a 43bp cost across 42 equity legs), and the conditional effect is unpriced as a strategy.
+
 **Status: two sources live. cTrader mid bars (28 instruments, audited and ingested) + MT5
 tick data (10 instruments, 350 days each, ~430M ticks → mid bars with per-bar spreads).
 Six registered families, ~2,300 hypotheses, **zero survivors** — including the two live
@@ -234,6 +242,14 @@ src/pair_panel.py    maps the pair family's per-trade P&L onto a day axis so the
                     family's selection bias is priceable by the same reality checks
 src/pooled_panel.py  maps the dollar-pooled family's oriented basket onto a day axis, so its
                     selection bias is priceable too
+src/cross_section.py   family: cross-sectional RANKING (does a feature predict the ordering of
+                    the cross-section's forward returns) - session-aligned, not bar-aligned
+src/ranking_book.py    prices the ranking as a real long/short book, net of measured spread
+src/conditional.py     family: drift at hour h GIVEN a pre-entry-observable state (spread
+                    percentile in the preceding hour), per-window and pooled tests
+src/markout.py         bar-level passive-fill markout and adverse selection
+src/tick_markout.py    tick-level markout (needs src.tick_ingest's retained tape)
+src/tick_ingest.py     pulls and RETAINS raw ticks with a self-declaring clock tag
 src/reality_check.py White's Reality Check + Hansen's SPA on the shared panel: prices the
                     selection bias of the whole search, not one candidate's null
 src/oos_eval.py     the learned-strategy layer: purged walk-forward OOS P&L columns appended
@@ -267,7 +283,7 @@ python -m src.pooled_test --worlds 200   # pre-registered dollar-strength re-tes
 python -m src.pair_sweep --worlds 200    # family 3: pair dislocations (~2 min)
 python -m scripts.tape_analysis          # analyze newest ../ctrader/tape/*.csv
 
-python -m tests.test_cost_model; python -m tests.test_pooled_panel; python -m tests.test_pair_panel; python -m tests.test_reality_check; python -m tests.test_oos_eval; python -m tests.test_window_sweep; python -m tests.test_mt5_clock
+python -m tests.test_cost_model; python -m tests.test_conditional; python -m tests.test_cross_section; python -m tests.test_tick_markout; python -m tests.test_pooled_panel; python -m tests.test_pair_panel; python -m tests.test_reality_check; python -m tests.test_oos_eval; python -m tests.test_window_sweep; python -m tests.test_mt5_clock
 python -m tests.test_registry; python -m tests.test_surrogates; python -m tests.test_noise_floor; python -m tests.test_window_sweep; python -m tests.test_pooled; python -m tests.test_pair_sweep
 
 # live spread tape (run from ../ctrader; refresh the token first if stale):
