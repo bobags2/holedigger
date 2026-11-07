@@ -123,3 +123,41 @@ Not more families of the same shape. In order of expected value:
 
 Eight families, zero survivors, three withdrawn findings, and a testing discipline that found
 every defect. That is the honest deliverable.
+
+## The fourth review's outcome: no alpha, and a risk framework instead
+
+The fourth external review found that the cTrader position P&L was computed from the **first
+closing deal only** (`gp.iloc[0]`), on a deals file that also contained 6,000 duplicate rows.
+Corrected, the account's net is **−602,934** across 3,473 positions, every instrument that
+matters is negative, and the balance path ran 112,508 → 54 with a peak of 246,253. That removed
+the last positive-looking result in the repo and confirmed what eight families of price features
+had already said: there is no directional edge here.
+
+What it left is the most robust finding in the project, and it is not about direction.
+**The losses are process.** The worst ten trades are 279% of NAS100's net, 153% of silver's, 96%
+of gold's, and 51% of the entire oil loss is ten trades out of 734. A cap is enforceable at
+entry time with no forecast, so `src/risk_rules.py` builds one.
+
+**The rule that works, and why its level is not a fit.** Cap each position at 3x that
+instrument's *measured venue toll* (`src/venue_cost`, the cost ledger):
+
+| | net | days positive | worst day | worst 10 |
+|---|---|---|---|---|
+| as measured | −602,934 | 13.1% | −103,332 | −404,494 |
+| capped at 3× toll | **+1,210,466** | **66.7%** | **−5,794** | **−48,242** |
+
+1,291 of 3,473 positions are capped. Gold goes −418,982 → +1,110,834 and NAS100 −41,199 →
++163,469; silver and oil stay negative, because their tolls are 15.45 bp and 7.01 bp and a cap
+at 3× those is too wide to bind.
+
+**The level is derived from measured cost, not from the loss distribution**, which is the
+difference between a decision and a curve fit: a tighter cap (5 bp flat) does even better
+(+1,503,907, 82.1% of days positive) but its level is chosen from the same losses it is
+evaluated on, and its benefit is concentrated in the longest holds — the same post-entry
+quantity P12 already proved unusable. So 3× toll is the level that carries no hindsight, and the
+5 bp figure is recorded as evidence of what is *available* rather than as the specification.
+
+**What this is not.** A counterfactual on history in which the rules did not exist. The forward
+test is the point: freeze `artifacts/risk_spec.json`, run it on demo for 20 sessions, and judge
+on the shape above rather than the total. A max-hold rule is deliberately absent — these trades
+had no max hold, so evaluating one conditions on the outcome.
