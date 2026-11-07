@@ -4,13 +4,16 @@ Search market data for exploitable structure — dislocations, forced-flow finge
 microstructure holes — instead of forecasting prices, with the multiple-testing problem
 treated as the central engineering constraint rather than a footnote.
 
-**Status: eight families live, and TWO now clear their own null.** Cross-sectional ranking
-(prev-session return -> next session's ordering, rho +0.035, percentile 1.0000 over 4000
-worlds, stable across halves) and the conditional family (spread state in the preceding hour
-conditions the next session's drift: gold +3.6bp, silver +5.6bp, oil -5.3bp, all at
-percentile 1.000 with a per-symbol sign that flips - a mechanism, not an artifact). Neither
-is tradeable yet: the ranking book nets **-24.0bp/session** against a **+19.0bp gross**
-(a 43bp cost across 42 equity legs), and the conditional effect is unpriced as a strategy.
+**Status: eight families live, zero survivors** — and the two results that briefly looked
+like survivors were withdrawn when their nulls were shown miscalibrated (see
+`docs/null-calibration.md`). Cross-sectional ranking: rho +0.035, but its null
+false-positived 42% of pure-noise worlds, and the corrected null puts it at the 97th
+percentile rather than the 100th. The conditional family: percentile 1.000 under a null that
+rejected 70% of noise; with a day-level permutation it falls to 0.85–0.95 and does not clear.
+Neither is tradeable even so: the ranking book nets **−24.0 bp/session** against a
+**+19.0 bp gross** (a 43 bp cost across 42 equity legs, i.e. 0.45 bp per leg against a ~1.4 bp
+round trip), and the certifiable effect size at 137 days is ~3.4 bp. That arithmetic is in
+`docs/where-this-stands.md`.
 
 **Status: two sources live. cTrader mid bars (28 instruments, audited and ingested) + MT5
 tick data (10 instruments, 350 days each, ~430M ticks → mid bars with per-bar spreads).
