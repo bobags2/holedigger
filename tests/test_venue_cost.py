@@ -7,6 +7,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from pathlib import Path
+import tempfile
+
 from src import venue_cost as vc
 
 
@@ -128,6 +131,31 @@ def test_crypto_costs_are_the_venues_most_expensive_by_a_wide_margin() -> None:
         c = vc.load_crypto_cost(sym)
         assert c.asset_class == "crypto"
         assert c.roundtrip_med_bp > gold.roundtrip_med_bp * 5, (sym, c.roundtrip_med_bp)
+
+def test_financing_is_flagged_as_unmeasured_and_a_schedule_can_retire_it() -> None:
+    """Financing is the toll for every multi-day hold, and nothing here measures it.
+
+    MT5's tool surface has no symbol_get; the tick panels carry only bid/ask/last/volume/flags/
+    mid; and cTrader's ProtoOASymbol declares swap_long/swap_short as ENABLED/DISABLED enums,
+    not rates. So FINANCING_ANNUAL_FRAC is an assumption and FINANCING_MEASURED must say so.
+    Without this test a future reader would take the table as measured and price a week-long
+    hold on a guess.
+    """
+    assert vc.FINANCING_MEASURED is False, (
+        "FINANCING_MEASURED must be False until a per-symbol schedule is loaded"
+    )
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "swaps.csv"
+        p.write_text("symbol,swap_long_pct,swap_short_pct\nXAUUSD,-1.25,-3.75\nEURUSD,0.50,-0.50\n")
+        n = vc.load_financing_schedule(p)
+        assert n == 2, n
+        assert vc.FINANCING_MEASURED is True
+        assert abs(vc.FINANCING_SHORT_FRAC["XAUUSD"] - (-0.0375)) < 1e-9
+        # a signed schedule is not clamped (a swap credit stays a credit)
+        assert vc.FINANCING_SHORT_FRAC["XAUUSD"] < 0
+    vc.FINANCING_MEASURED = False
+    vc.FINANCING_SHORT_FRAC.clear()
+
 
 def main() -> None:
     # NOTE: this entry point must stay at the END of the file. An earlier version had tests

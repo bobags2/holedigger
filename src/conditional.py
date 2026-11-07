@@ -248,37 +248,9 @@ def run_pooled(symbols: list[str], *, state: str = "spread_prev_hour",
     }
 
 
-def _per_day_values(vals: np.ndarray, bar_day: np.ndarray, labels: np.ndarray,
-                    state: str, window_index: int) -> np.ndarray:
-    """The (day, value) pairs for one (window, state) cell.
-
-    ``drift_by_cell`` returns one value per day that traded that cell; the day a value
-    belongs to is recoverable because cells are built day-major. This is the unit a
-    day-level permutation needs: the SAME day must move together across all windows.
-    """
-    return np.asarray(vals, dtype=float)
-
-
-def _day_level_permutation(labels: np.ndarray, values: np.ndarray) -> np.ndarray:
-    """Permute whole DAY blocks of ``labels``, keeping each day's windows together.
-
-    ``labels`` is ordered day-major with every window of a day contiguous, so the blocks are
-    equal-length runs. Permuting the run START offsets permutes days; permuting within a run
-    would reshuffle that day's windows, which is the defect this replaces.
-    """
-    n = len(labels)
-    # contiguous runs of equal labels are one day's windows (or the tail of one)
-    bounds = np.flatnonzero(np.diff(labels)) + 1
-    starts = np.concatenate([[0], bounds])
-    ends = np.concatenate([bounds, [n]])
-    order = np.random.default_rng(int(labels[:1].sum())).permutation(len(starts))
-    out = np.empty(n, dtype=bool)
-    for slot, src in enumerate(order):
-        lo_dst, hi_dst = starts[slot], ends[slot]
-        lo_src, hi_src = starts[src], ends[src]
-        take = min(hi_dst - lo_dst, hi_src - lo_src)
-        out[lo_dst:lo_dst + take] = labels[lo_src:lo_src + take]
-    return out
+# NOTE: `_per_day_values` and `_day_level_permutation` used to live here and were removed -
+# both were dead (grep-verified: defined, never called), and a dead day-level permutation is
+# worse than none because its docstring described a fix that was not wired anywhere.
 
 
 def run(symbols: list[str], *, states: tuple[str, ...] = STATES,

@@ -7,11 +7,43 @@ say that is a property of the search space rather than a failure of the machiner
 
 ## The arithmetic that settles it
 
+Written after the third round of external review. The prior rounds found real defects in the
+inference layer; this one found that the two surviving results did not survive either. With
+both withdrawn, the honest state was **zero survivors across eight families**.
+
+That conclusion has since been revised in one place, and the revision is recorded here rather
+than left to a diff: the fourth review found that the ranking book's **cost was drawn from the
+wrong session** (42.98 bp against a measured median equity entry+exit of ~10 bp, a 3.6×
+overstatement). Re-costed on the session the book actually holds over, the book's net is
+**+6.99 bp/session at percentile 1.000 against its own null**, and +4.23 bp beta-neutralised.
+So this is the first candidate in the repo's history to clear its own null, and the "every
+family finishes below the toll" claim above is now **too strong**.
+
+**Which of those two states is right, and how it will be settled.** The three numbers below
+are the honest current position:
+
+| quantity | measured value | status |
+|---|---|---|
+| ranking book, net after measured cost | **+6.99 bp/session** | clears its own null (4,000 worlds) |
+| ranking book, beta-neutralised net | **+4.23 bp/session** | survives the transform the reviewer asked for |
+| ranking book, gross t | **+1.92** | **weakly certified — the gross is the weak link, not the cost** |
+| ranking book, data span | **2026 only** | one calendar year; the +6.99 bp is not a multi-year claim |
+| equity round-trip spread, measured | ~10 bp median entry+exit | the toll the book pays per leg |
+
+The two open checks that decide whether +6.99 bp is real, both from the same review and both
+unfinished: (a) whether the gross is concentrated in the opening bar — the book trades the
+first and last bars of the session, where equity CFD spreads are widest, so a mid-session
+entry/exit must be priced before anyone acts on this; and (b) a second calendar year. Until
+those land, treat +6.99 bp as **a candidate that cleared its null, not a validated edge**.
+
+The rest of the arithmetic still holds and still explains why everything *else* finished below
+the toll:
+
 | quantity | measured value |
 |---|---|
-| cross-sectional ranking, gross per leg | **+0.453 bp** |
-| equity round-trip spread, ~1.4 bp | the cost of taking that leg |
-| conditional family, median drift difference | +3.1 to +7.9 bp per leg (and it did not clear a calibrated null) |
+| cross-sectional ranking, gross per leg | +0.453 bp (the ranking correlation, not the book) |
+| equity round-trip spread, median entry+exit | ~10 bp |
+| conditional family, median drift difference | +3.1 to +7.9 bp per leg (did not clear a calibrated null) |
 | effect size 137 days can certify at t=2 | **3.4 bp** (per-day sd ≈ 20 bp) |
 | effect size 250 days can certify at t=2 | **2.5 bp** |
 
@@ -43,6 +75,14 @@ The inference layer caught, in order:
    defect as (2) in a new place.
 7. **A ranking null that destroyed beta structure** — 42% false positives.
 8. **Direction chosen in-sample**, and a markout whose horizon was not in minutes.
+9. **A "corrected" null that was not a p-value** — the real statistic was computed on RAW
+   returns while its null residualised them, so the percentile compared two different
+   functions. Measured at **100% false positives** at market AR(1)=0.3; 5.0% after applying
+   one shared ``beta_neutralise`` to both sides. The calibration test asserting that null
+   contained the *same asymmetry*, which is why it passed at 0% while production failed.
+10. **A cost drawn from the wrong session** — entry/exit spreads read from the previous
+    session's rows *and* from per-symbol arrays indexed with the union-day array, which
+    overstates the toll 3.6× and buried the one result that was positive.
 
 Every one was found by a test that asked the null a question with a known answer. That is the
 transferable asset here: `tests/test_null_calibration.py` is a pattern, not a one-off, and any
@@ -53,10 +93,13 @@ should carry the same discipline.
 
 Not more families of the same shape. In order of expected value:
 
-1. **A venue where costs are not the binding constraint.** The user trades NQ and GC futures
-   through Rithmic; CME spread and commission structure differs from Fusion CFDs by more than
-   the entire measured effect. Re-costing the same candidates on the real venue is a data
-   problem, not a research one, and it is the single highest-value thing available.
+1. ~~**A venue where costs are not the binding constraint.**~~ **Moot — CFD-only, verified.**
+   This item used to recommend re-costing the candidates on NQ/GC futures through Rithmic.
+   The account is CFD-only (confirmed 2026-11-07), so that is not available and the note is
+   left here only so it is not re-proposed. What survives the correction is the *shape* of
+   the question, and `src/venue_cost.py` is the answer to it: the cost ledger now prices two
+   venues (MT5 panels and the cTrader live tape), and four pairs that were dead or
+   unpriceable on MT5 clear on cTrader. Pick the cheaper venue per instrument.
 2. **More history — not available on this venue, checked.** The MT5 terminal advertises
    ``data_available_from: 2024-01-02``, but the same terminal returns **0 ticks for every
    queried date before 2025-11-01** (bisected 2024-01-02, 2024-06-01, 2025-01-01,

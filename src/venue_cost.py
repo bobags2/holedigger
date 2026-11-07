@@ -16,12 +16,29 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
 from . import config, mt5_clock
 
-# Published 2026 overnight financing on CFD notionals, annualised, as a fraction of notional.
-# Sources: 2026 broker fee analyses. NOT measured - declared assumption, and the one number in
-# this module that is not from the tape. A strategy holding N nights pays N times this.
+# Overnight financing on CFD notionals, annualised, as a fraction of notional.
+#
+# *** THIS IS AN ASSUMPTION, NOT A MEASUREMENT - flagged because it is the toll for every
+# multi-day hold and nothing in this repo measures it. *** MT5's tool surface here exposes no
+# symbol_get, so swap_long/swap_short are not reachable; the tick panels carry only
+# bid/ask/last/volume/flags/mid; and cTrader's ProtoOASymbol declares swap_long/swap_short as
+# ENABLED/DISABLED enums, not rates. So the true per-symbol financing is UNKNOWN and every
+# number that depends on it carries this caveat by construction.
+#
+# The magnitudes are the 2026 published range by asset class, and the class lookup below is
+# the same one used for the ledger's other by-class assumptions. To retire this table and make
+# the ledger fully measured, pull the broker's per-symbol swap schedule: MT5 symbol_get(),
+# cTrader's symbol detail RPC, or the broker's published swap page.
+#
+# Consequence, stated so it is not forgotten: cost_for_hold()'s financing term is the only
+# unmeasured toll in the module. For a hold under one day it is negligible (0.023 bp for one
+# hour at 2% annualised on FX), so intraday conclusions are unaffected. For a 7-day hold it is
+# 5-6 bp on the cheap instruments, which is larger than most of the edges in the register - so
+# any multi-day strategy here is unspecified until this is measured.
 FINANCING_ANNUAL_FRAC = {
     "index": 0.045,     # S&P/Nasdaq/Dow CFDs, SOFR + markup 3-6%
     "metal": 0.030,     # precious metals 2-4%
@@ -29,8 +46,10 @@ FINANCING_ANNUAL_FRAC = {
     "fx": 0.020,        # rate differential + markup; 2026 majors are debit-heavy both ways
     "equity": 0.035,
     "soft_ag": 0.045,
-    "crypto": 0.060,      # highest average on the venue: 4-8% after markup
+    "crypto": 0.060,    # highest average on the venue: 4-8% after markup
 }
+FINANCING_MEASURED = False   # True only when load_financing_schedule() succeeds
+FINANCING_SHORT_FRAC: dict[str, float] = {}   # short-side rate, from the same schedule
 
 PREFIX_CLASS = {
     "NAS": "index", "US5": "index", "US30": "index", "GER": "index", "UK": "index",
@@ -39,6 +58,32 @@ PREFIX_CLASS = {
     "EUR": "fx", "GBP": "fx", "USD": "fx", "AUD": "fx", "NZD": "fx", "CAD": "fx", "CHF": "fx", "JPY": "fx",
 }
 DEFAULT_CLASS = "equity"
+
+
+def load_financing_schedule(path) -> int:
+    """Load a measured per-symbol financing schedule and retire the assumption above.
+
+    Accepts a CSV or parquet with columns ``symbol``, ``swap_long_pct``, ``swap_short_pct``
+    (annualised percent of notional, signed). Returns the number of symbols loaded, or 0 with
+    ``FINANCING_MEASURED`` left False - in which case every downstream number keeps using the
+    by-class assumption and stays flagged as such.
+
+    The swap is signed, so a schedule that carries a negative long swap (a credit) is handled
+    by sign, not by clamping; ``cost_for_hold`` uses whichever side the position is on.
+    """
+    global FINANCING_MEASURED
+    path = Path(path)
+    if not path.exists():
+        return 0
+    df = pd.read_csv(path) if path.suffix.lower() == ".csv" else pd.read_parquet(path)
+    need = {"symbol", "swap_long_pct", "swap_short_pct"}
+    if not need <= set(df.columns):
+        return 0
+    for row in df.itertuples(index=False):
+        FINANCING_ANNUAL_FRAC[str(row.symbol).upper()] = float(row.swap_long_pct) / 100.0
+        FINANCING_SHORT_FRAC[str(row.symbol).upper()] = float(row.swap_short_pct) / 100.0
+    FINANCING_MEASURED = True
+    return int(len(df))
 
 
 def asset_class(symbol: str) -> str:
@@ -75,7 +120,12 @@ class VenueCost:
         a seasonality assumption — it is what "annual" means.
         """
         rt = self.roundtrip_p90_bp if p90 else self.roundtrip_med_bp
-        fin_bp = self.financing_annual * (hours / (365.0 * 24.0)) * 1e4
+        rate = self.financing_annual
+        # a loaded schedule carries the per-symbol rate for the side actually held; without
+        # one this falls back to the asset-class assumption, which is flagged above
+        if self.symbol.upper() in FINANCING_SHORT_FRAC:
+            rate = FINANCING_SHORT_FRAC[self.symbol.upper()]
+        fin_bp = rate * (hours / (365.0 * 24.0)) * 1e4
         return rt + fin_bp
 
     @property
