@@ -1,478 +1,716 @@
 {
-  "XAUUSD": {
-    "symbol": "XAUUSD",
-    "ticks": 600000,
-    "span": [
-      "2026-11-03 23:00:00.617000",
-      "2026-11-06 16:15:59.169000"
-    ],
-    "bid_fills": 289911,
-    "ask_fills": 295774,
-    "horizons": {
-      "+1m_bid": {
-        "all": {
-          "n": 289736,
-          "mean_bp": -1.94012,
-          "t": -287.512,
-          "hit": 0.5052,
-          "bursts": {
-            "n": 289736,
-            "n_bursts": 28311,
-            "mean_bp": -1.41164,
-            "burst_sd_bp": 2.85956,
-            "t_bursts": -83.062,
-            "hit": 0.4983
-          }
-        },
-        "wide_spread": {
-          "n": 57948,
-          "mean_bp": -2.47185,
-          "t": -127.46,
-          "hit": 0.49
-        },
-        "tight_spread": {
-          "n": 231788,
-          "mean_bp": -1.80719,
-          "t": -262.875,
-          "hit": 0.509
-        }
-      },
-      "+1m_offer": {
-        "all": {
-          "n": 295631,
-          "mean_bp": -2.13917,
-          "t": -175.747,
-          "hit": 0.5026,
-          "bursts": {
-            "n": 295631,
-            "n_bursts": 29423,
-            "mean_bp": -1.57954,
-            "burst_sd_bp": 5.72763,
-            "t_bursts": -47.304,
-            "hit": 0.487
-          }
-        },
-        "wide_spread": {
-          "n": 59127,
-          "mean_bp": -2.69227,
-          "t": -67.415,
-          "hit": 0.5302
-        },
-        "tight_spread": {
-          "n": 236504,
-          "mean_bp": -2.0009,
-          "t": -174.547,
-          "hit": 0.4957
-        }
-      },
-      "+5m_bid": {
-        "all": {
-          "n": 289089,
-          "mean_bp": -4.53946,
-          "t": -306.81,
-          "hit": 0.5004,
-          "bursts": {
-            "n": 289089,
-            "n_bursts": 28269,
-            "mean_bp": -3.57782,
-            "burst_sd_bp": 6.2332,
-            "t_bursts": -96.508,
-            "hit": 0.4921
-          }
-        },
-        "wide_spread": {
-          "n": 57818,
-          "mean_bp": -5.42288,
-          "t": -139.907,
-          "hit": 0.4755
-        },
-        "tight_spread": {
-          "n": 231271,
-          "mean_bp": -4.3186,
-          "t": -274.732,
-          "hit": 0.5066
-        }
-      },
-      "+5m_offer": {
-        "all": {
-          "n": 295051,
-          "mean_bp": -5.45067,
-          "t": -205.866,
-          "hit": 0.5001,
-          "bursts": {
-            "n": 295051,
-            "n_bursts": 29368,
-            "mean_bp": -4.38117,
-            "burst_sd_bp": 13.07001,
-            "t_bursts": -57.445,
-            "hit": 0.5006
-          }
-        },
-        "wide_spread": {
-          "n": 59011,
-          "mean_bp": -6.15508,
-          "t": -89.705,
-          "hit": 0.5332
-        },
-        "tight_spread": {
-          "n": 236040,
-          "mean_bp": -5.27456,
-          "t": -186.432,
-          "hit": 0.4918
-        }
-      },
-      "+15m_bid": {
-        "all": {
-          "n": 287471,
-          "mean_bp": -7.41096,
-          "t": -334.782,
-          "hit": 0.4893,
-          "bursts": {
-            "n": 287471,
-            "n_bursts": 28166,
-            "mean_bp": -6.06217,
-            "burst_sd_bp": 9.79931,
-            "t_bursts": -103.823,
-            "hit": 0.4755
-          }
-        },
-        "wide_spread": {
-          "n": 57497,
-          "mean_bp": -8.31615,
-          "t": -138.566,
-          "hit": 0.5016
-        },
-        "tight_spread": {
-          "n": 229974,
-          "mean_bp": -7.18465,
-          "t": -309.339,
-          "hit": 0.4862
-        }
-      },
-      "+15m_offer": {
-        "all": {
-          "n": 293559,
-          "mean_bp": -9.90534,
-          "t": -220.308,
-          "hit": 0.5156,
-          "bursts": {
-            "n": 293559,
-            "n_bursts": 29238,
-            "mean_bp": -8.69154,
-            "burst_sd_bp": 24.13518,
-            "t_bursts": -61.577,
-            "hit": 0.5136
-          }
-        },
-        "wide_spread": {
-          "n": 58712,
-          "mean_bp": -12.74548,
-          "t": -98.154,
-          "hit": 0.5002
-        },
-        "tight_spread": {
-          "n": 234847,
-          "mean_bp": -9.1953,
-          "t": -200.942,
-          "hit": 0.5195
-        }
-      },
-      "+30m_bid": {
-        "all": {
-          "n": 285119,
-          "mean_bp": -10.12377,
-          "t": -360.32,
-          "hit": 0.5068,
-          "bursts": {
-            "n": 285119,
-            "n_bursts": 28014,
-            "mean_bp": -8.42327,
-            "burst_sd_bp": 13.28491,
-            "t_bursts": -106.123,
-            "hit": 0.5179
-          }
-        },
-        "wide_spread": {
-          "n": 57025,
-          "mean_bp": -11.08159,
-          "t": -162.911,
-          "hit": 0.5089
-        },
-        "tight_spread": {
-          "n": 228094,
-          "mean_bp": -9.88431,
-          "t": -321.873,
-          "hit": 0.5063
-        }
-      },
-      "+30m_offer": {
-        "all": {
-          "n": 291437,
-          "mean_bp": -14.04481,
-          "t": -237.707,
-          "hit": 0.5055,
-          "bursts": {
-            "n": 291437,
-            "n_bursts": 29031,
-            "mean_bp": -14.51106,
-            "burst_sd_bp": 35.67586,
-            "t_bursts": -69.304,
-            "hit": 0.4703
-          }
-        },
-        "wide_spread": {
-          "n": 58290,
-          "mean_bp": -16.1564,
-          "t": -111.184,
-          "hit": 0.5034
-        },
-        "tight_spread": {
-          "n": 233147,
-          "mean_bp": -13.51688,
-          "t": -210.357,
-          "hit": 0.5061
-        }
-      }
+ "XAUUSD": {
+  "symbol": "XAUUSD",
+  "ticks": 600000,
+  "span": [
+   "2026-11-03 23:00:00.617000",
+   "2026-11-06 16:15:59.169000"
+  ],
+  "bid_fills": 289911,
+  "ask_fills": 295774,
+  "horizons": {
+   "+1m_bid": {
+    "all": {
+     "n": 289736,
+     "mean_bp": -1.94012,
+     "t": -287.512,
+     "hit": 0.5052,
+     "bursts": {
+      "n": 289736,
+      "n_bursts": 28311,
+      "mean_bp": -1.41164,
+      "burst_sd_bp": 2.85956,
+      "t_bursts": -83.062,
+      "hit": 0.4983
+     }
     },
-    "inference": "quote-move (no last price on this tape)",
-    "interpretation": "mean_bp > 0 means the passive side EARNS the spread even after the tape moves; <= 0 means it is eaten. A wide-spread markout WORSE than tight is adverse selection: the width is informed flow, not inventory. On an MT5 tape the aggressor is not observable, so a fill is inferred from which side the QUOTE moved on - a lower bound on fills, hence a conservative markout."
+    "wide_spread": {
+     "n": 57948,
+     "mean_bp": -2.47185,
+     "t": -127.46,
+     "hit": 0.49
+    },
+    "tight_spread": {
+     "n": 231788,
+     "mean_bp": -1.80719,
+     "t": -262.875,
+     "hit": 0.509
+    }
+   },
+   "+1m_offer": {
+    "all": {
+     "n": 295631,
+     "mean_bp": -2.13917,
+     "t": -175.747,
+     "hit": 0.5026,
+     "bursts": {
+      "n": 295631,
+      "n_bursts": 29423,
+      "mean_bp": -1.57954,
+      "burst_sd_bp": 5.72763,
+      "t_bursts": -47.304,
+      "hit": 0.487
+     }
+    },
+    "wide_spread": {
+     "n": 59127,
+     "mean_bp": -2.69227,
+     "t": -67.415,
+     "hit": 0.5302
+    },
+    "tight_spread": {
+     "n": 236504,
+     "mean_bp": -2.0009,
+     "t": -174.547,
+     "hit": 0.4957
+    }
+   },
+   "+5m_bid": {
+    "all": {
+     "n": 289089,
+     "mean_bp": -4.53946,
+     "t": -306.81,
+     "hit": 0.5004,
+     "bursts": {
+      "n": 289089,
+      "n_bursts": 28269,
+      "mean_bp": -3.57782,
+      "burst_sd_bp": 6.2332,
+      "t_bursts": -96.508,
+      "hit": 0.4921
+     }
+    },
+    "wide_spread": {
+     "n": 57818,
+     "mean_bp": -5.42288,
+     "t": -139.907,
+     "hit": 0.4755
+    },
+    "tight_spread": {
+     "n": 231271,
+     "mean_bp": -4.3186,
+     "t": -274.732,
+     "hit": 0.5066
+    }
+   },
+   "+5m_offer": {
+    "all": {
+     "n": 295051,
+     "mean_bp": -5.45067,
+     "t": -205.866,
+     "hit": 0.5001,
+     "bursts": {
+      "n": 295051,
+      "n_bursts": 29368,
+      "mean_bp": -4.38117,
+      "burst_sd_bp": 13.07001,
+      "t_bursts": -57.445,
+      "hit": 0.5006
+     }
+    },
+    "wide_spread": {
+     "n": 59011,
+     "mean_bp": -6.15508,
+     "t": -89.705,
+     "hit": 0.5332
+    },
+    "tight_spread": {
+     "n": 236040,
+     "mean_bp": -5.27456,
+     "t": -186.432,
+     "hit": 0.4918
+    }
+   },
+   "+15m_bid": {
+    "all": {
+     "n": 287471,
+     "mean_bp": -7.41096,
+     "t": -334.782,
+     "hit": 0.4893,
+     "bursts": {
+      "n": 287471,
+      "n_bursts": 28166,
+      "mean_bp": -6.06217,
+      "burst_sd_bp": 9.79931,
+      "t_bursts": -103.823,
+      "hit": 0.4755
+     }
+    },
+    "wide_spread": {
+     "n": 57497,
+     "mean_bp": -8.31615,
+     "t": -138.566,
+     "hit": 0.5016
+    },
+    "tight_spread": {
+     "n": 229974,
+     "mean_bp": -7.18465,
+     "t": -309.339,
+     "hit": 0.4862
+    }
+   },
+   "+15m_offer": {
+    "all": {
+     "n": 293559,
+     "mean_bp": -9.90534,
+     "t": -220.308,
+     "hit": 0.5156,
+     "bursts": {
+      "n": 293559,
+      "n_bursts": 29238,
+      "mean_bp": -8.69154,
+      "burst_sd_bp": 24.13518,
+      "t_bursts": -61.577,
+      "hit": 0.5136
+     }
+    },
+    "wide_spread": {
+     "n": 58712,
+     "mean_bp": -12.74548,
+     "t": -98.154,
+     "hit": 0.5002
+    },
+    "tight_spread": {
+     "n": 234847,
+     "mean_bp": -9.1953,
+     "t": -200.942,
+     "hit": 0.5195
+    }
+   },
+   "+30m_bid": {
+    "all": {
+     "n": 285119,
+     "mean_bp": -10.12377,
+     "t": -360.32,
+     "hit": 0.5068,
+     "bursts": {
+      "n": 285119,
+      "n_bursts": 28014,
+      "mean_bp": -8.42327,
+      "burst_sd_bp": 13.28491,
+      "t_bursts": -106.123,
+      "hit": 0.5179
+     }
+    },
+    "wide_spread": {
+     "n": 57025,
+     "mean_bp": -11.08159,
+     "t": -162.911,
+     "hit": 0.5089
+    },
+    "tight_spread": {
+     "n": 228094,
+     "mean_bp": -9.88431,
+     "t": -321.873,
+     "hit": 0.5063
+    }
+   },
+   "+30m_offer": {
+    "all": {
+     "n": 291437,
+     "mean_bp": -14.04481,
+     "t": -237.707,
+     "hit": 0.5055,
+     "bursts": {
+      "n": 291437,
+      "n_bursts": 29031,
+      "mean_bp": -14.51106,
+      "burst_sd_bp": 35.67586,
+      "t_bursts": -69.304,
+      "hit": 0.4703
+     }
+    },
+    "wide_spread": {
+     "n": 58290,
+     "mean_bp": -16.1564,
+     "t": -111.184,
+     "hit": 0.5034
+    },
+    "tight_spread": {
+     "n": 233147,
+     "mean_bp": -13.51688,
+     "t": -210.357,
+     "hit": 0.5061
+    }
+   }
   },
-  "XAGUSD": {
-    "symbol": "XAGUSD",
-    "ticks": 600000,
-    "span": [
-      "2026-11-03 23:00:00.621000",
-      "2026-11-06 17:20:36.036000"
-    ],
-    "bid_fills": 240382,
-    "ask_fills": 236099,
-    "horizons": {
-      "+1m_bid": {
-        "all": {
-          "n": 240301,
-          "mean_bp": -1.32384,
-          "t": -97.084,
-          "hit": 0.6226,
-          "bursts": {
-            "n": 240301,
-            "n_bursts": 23987,
-            "mean_bp": -0.36553,
-            "burst_sd_bp": 4.73387,
-            "t_bursts": -11.959,
-            "hit": 0.6595
-          }
-        },
-        "wide_spread": {
-          "n": 48061,
-          "mean_bp": -1.02229,
-          "t": -32.448,
-          "hit": 0.6373
-        },
-        "tight_spread": {
-          "n": 192240,
-          "mean_bp": -1.39923,
-          "t": -92.595,
-          "hit": 0.6189
-        }
-      },
-      "+1m_offer": {
-        "all": {
-          "n": 236026,
-          "mean_bp": -1.76976,
-          "t": -102.779,
-          "hit": 0.6106,
-          "bursts": {
-            "n": 236026,
-            "n_bursts": 23598,
-            "mean_bp": -0.45656,
-            "burst_sd_bp": 5.55809,
-            "t_bursts": -12.619,
-            "hit": 0.6612
-          }
-        },
-        "wide_spread": {
-          "n": 47223,
-          "mean_bp": -1.95374,
-          "t": -34.156,
-          "hit": 0.6384
-        },
-        "tight_spread": {
-          "n": 188803,
-          "mean_bp": -1.72374,
-          "t": -107.185,
-          "hit": 0.6036
-        }
-      },
-      "+5m_bid": {
-        "all": {
-          "n": 240035,
-          "mean_bp": -5.99651,
-          "t": -196.599,
-          "hit": 0.5497,
-          "bursts": {
-            "n": 240035,
-            "n_bursts": 23941,
-            "mean_bp": -4.24442,
-            "burst_sd_bp": 11.16429,
-            "t_bursts": -58.825,
-            "hit": 0.549
-          }
-        },
-        "wide_spread": {
-          "n": 48024,
-          "mean_bp": -4.83156,
-          "t": -89.808,
-          "hit": 0.5464
-        },
-        "tight_spread": {
-          "n": 192011,
-          "mean_bp": -6.28787,
-          "t": -176.398,
-          "hit": 0.5506
-        }
-      },
-      "+5m_offer": {
-        "all": {
-          "n": 235759,
-          "mean_bp": -7.64184,
-          "t": -205.157,
-          "hit": 0.5428,
-          "bursts": {
-            "n": 235759,
-            "n_bursts": 23562,
-            "mean_bp": -4.50989,
-            "burst_sd_bp": 13.47452,
-            "t_bursts": -51.376,
-            "hit": 0.5818
-          }
-        },
-        "wide_spread": {
-          "n": 47159,
-          "mean_bp": -9.94446,
-          "t": -79.884,
-          "hit": 0.5619
-        },
-        "tight_spread": {
-          "n": 188600,
-          "mean_bp": -7.06607,
-          "t": -204.802,
-          "hit": 0.538
-        }
-      },
-      "+15m_bid": {
-        "all": {
-          "n": 239322,
-          "mean_bp": -11.36617,
-          "t": -226.514,
-          "hit": 0.5426,
-          "bursts": {
-            "n": 239322,
-            "n_bursts": 23923,
-            "mean_bp": -9.38649,
-            "burst_sd_bp": 19.07515,
-            "t_bursts": -76.11,
-            "hit": 0.5222
-          }
-        },
-        "wide_spread": {
-          "n": 47866,
-          "mean_bp": -6.95155,
-          "t": -96.743,
-          "hit": 0.5992
-        },
-        "tight_spread": {
-          "n": 191456,
-          "mean_bp": -12.46988,
-          "t": -208.418,
-          "hit": 0.5284
-        }
-      },
-      "+15m_offer": {
-        "all": {
-          "n": 235028,
-          "mean_bp": -16.08044,
-          "t": -235.101,
-          "hit": 0.518,
-          "bursts": {
-            "n": 235028,
-            "n_bursts": 23493,
-            "mean_bp": -10.64564,
-            "burst_sd_bp": 24.01596,
-            "t_bursts": -67.942,
-            "hit": 0.5554
-          }
-        },
-        "wide_spread": {
-          "n": 47018,
-          "mean_bp": -21.8066,
-          "t": -105.524,
-          "hit": 0.4855
-        },
-        "tight_spread": {
-          "n": 188010,
-          "mean_bp": -14.64842,
-          "t": -216.32,
-          "hit": 0.5262
-        }
-      },
-      "+30m_bid": {
-        "all": {
-          "n": 238004,
-          "mean_bp": -16.21572,
-          "t": -252.181,
-          "hit": 0.5498,
-          "bursts": {
-            "n": 238004,
-            "n_bursts": 23771,
-            "mean_bp": -13.79174,
-            "burst_sd_bp": 27.05032,
-            "t_bursts": -78.609,
-            "hit": 0.5361
-          }
-        },
-        "wide_spread": {
-          "n": 47618,
-          "mean_bp": -12.51535,
-          "t": -110.753,
-          "hit": 0.6029
-        },
-        "tight_spread": {
-          "n": 190386,
-          "mean_bp": -17.14123,
-          "t": -228.237,
-          "hit": 0.5366
-        }
-      },
-      "+30m_offer": {
-        "all": {
-          "n": 233838,
-          "mean_bp": -24.37056,
-          "t": -239.059,
-          "hit": 0.4958,
-          "bursts": {
-            "n": 233838,
-            "n_bursts": 23372,
-            "mean_bp": -18.18055,
-            "burst_sd_bp": 38.25331,
-            "t_bursts": -72.658,
-            "hit": 0.5088
-          }
-        },
-        "wide_spread": {
-          "n": 46773,
-          "mean_bp": -33.77353,
-          "t": -117.309,
-          "hit": 0.4487
-        },
-        "tight_spread": {
-          "n": 187065,
-          "mean_bp": -22.01948,
-          "t": -210.816,
-          "hit": 0.5075
-        }
-      }
+  "inference": "quote-move (no last price on this tape)",
+  "interpretation": "mean_bp > 0 means the passive side EARNS the spread even after the tape moves; <= 0 means it is eaten. A wide-spread markout WORSE than tight is adverse selection: the width is informed flow, not inventory. On an MT5 tape the aggressor is not observable, so a fill is inferred from which side the QUOTE moved on - a lower bound on fills, hence a conservative markout."
+ },
+ "XAGUSD": {
+  "symbol": "XAGUSD",
+  "ticks": 600000,
+  "span": [
+   "2026-11-03 23:00:00.621000",
+   "2026-11-06 17:20:36.036000"
+  ],
+  "bid_fills": 240382,
+  "ask_fills": 236099,
+  "horizons": {
+   "+1m_bid": {
+    "all": {
+     "n": 240301,
+     "mean_bp": -1.32384,
+     "t": -97.084,
+     "hit": 0.6226,
+     "bursts": {
+      "n": 240301,
+      "n_bursts": 23987,
+      "mean_bp": -0.36553,
+      "burst_sd_bp": 4.73387,
+      "t_bursts": -11.959,
+      "hit": 0.6595
+     }
     },
-    "inference": "quote-move (no last price on this tape)",
-    "interpretation": "mean_bp > 0 means the passive side EARNS the spread even after the tape moves; <= 0 means it is eaten. A wide-spread markout WORSE than tight is adverse selection: the width is informed flow, not inventory. On an MT5 tape the aggressor is not observable, so a fill is inferred from which side the QUOTE moved on - a lower bound on fills, hence a conservative markout."
-  }
+    "wide_spread": {
+     "n": 48061,
+     "mean_bp": -1.02229,
+     "t": -32.448,
+     "hit": 0.6373
+    },
+    "tight_spread": {
+     "n": 192240,
+     "mean_bp": -1.39923,
+     "t": -92.595,
+     "hit": 0.6189
+    }
+   },
+   "+1m_offer": {
+    "all": {
+     "n": 236026,
+     "mean_bp": -1.76976,
+     "t": -102.779,
+     "hit": 0.6106,
+     "bursts": {
+      "n": 236026,
+      "n_bursts": 23598,
+      "mean_bp": -0.45656,
+      "burst_sd_bp": 5.55809,
+      "t_bursts": -12.619,
+      "hit": 0.6612
+     }
+    },
+    "wide_spread": {
+     "n": 47223,
+     "mean_bp": -1.95374,
+     "t": -34.156,
+     "hit": 0.6384
+    },
+    "tight_spread": {
+     "n": 188803,
+     "mean_bp": -1.72374,
+     "t": -107.185,
+     "hit": 0.6036
+    }
+   },
+   "+5m_bid": {
+    "all": {
+     "n": 240035,
+     "mean_bp": -5.99651,
+     "t": -196.599,
+     "hit": 0.5497,
+     "bursts": {
+      "n": 240035,
+      "n_bursts": 23941,
+      "mean_bp": -4.24442,
+      "burst_sd_bp": 11.16429,
+      "t_bursts": -58.825,
+      "hit": 0.549
+     }
+    },
+    "wide_spread": {
+     "n": 48024,
+     "mean_bp": -4.83156,
+     "t": -89.808,
+     "hit": 0.5464
+    },
+    "tight_spread": {
+     "n": 192011,
+     "mean_bp": -6.28787,
+     "t": -176.398,
+     "hit": 0.5506
+    }
+   },
+   "+5m_offer": {
+    "all": {
+     "n": 235759,
+     "mean_bp": -7.64184,
+     "t": -205.157,
+     "hit": 0.5428,
+     "bursts": {
+      "n": 235759,
+      "n_bursts": 23562,
+      "mean_bp": -4.50989,
+      "burst_sd_bp": 13.47452,
+      "t_bursts": -51.376,
+      "hit": 0.5818
+     }
+    },
+    "wide_spread": {
+     "n": 47159,
+     "mean_bp": -9.94446,
+     "t": -79.884,
+     "hit": 0.5619
+    },
+    "tight_spread": {
+     "n": 188600,
+     "mean_bp": -7.06607,
+     "t": -204.802,
+     "hit": 0.538
+    }
+   },
+   "+15m_bid": {
+    "all": {
+     "n": 239322,
+     "mean_bp": -11.36617,
+     "t": -226.514,
+     "hit": 0.5426,
+     "bursts": {
+      "n": 239322,
+      "n_bursts": 23923,
+      "mean_bp": -9.38649,
+      "burst_sd_bp": 19.07515,
+      "t_bursts": -76.11,
+      "hit": 0.5222
+     }
+    },
+    "wide_spread": {
+     "n": 47866,
+     "mean_bp": -6.95155,
+     "t": -96.743,
+     "hit": 0.5992
+    },
+    "tight_spread": {
+     "n": 191456,
+     "mean_bp": -12.46988,
+     "t": -208.418,
+     "hit": 0.5284
+    }
+   },
+   "+15m_offer": {
+    "all": {
+     "n": 235028,
+     "mean_bp": -16.08044,
+     "t": -235.101,
+     "hit": 0.518,
+     "bursts": {
+      "n": 235028,
+      "n_bursts": 23493,
+      "mean_bp": -10.64564,
+      "burst_sd_bp": 24.01596,
+      "t_bursts": -67.942,
+      "hit": 0.5554
+     }
+    },
+    "wide_spread": {
+     "n": 47018,
+     "mean_bp": -21.8066,
+     "t": -105.524,
+     "hit": 0.4855
+    },
+    "tight_spread": {
+     "n": 188010,
+     "mean_bp": -14.64842,
+     "t": -216.32,
+     "hit": 0.5262
+    }
+   },
+   "+30m_bid": {
+    "all": {
+     "n": 238004,
+     "mean_bp": -16.21572,
+     "t": -252.181,
+     "hit": 0.5498,
+     "bursts": {
+      "n": 238004,
+      "n_bursts": 23771,
+      "mean_bp": -13.79174,
+      "burst_sd_bp": 27.05032,
+      "t_bursts": -78.609,
+      "hit": 0.5361
+     }
+    },
+    "wide_spread": {
+     "n": 47618,
+     "mean_bp": -12.51535,
+     "t": -110.753,
+     "hit": 0.6029
+    },
+    "tight_spread": {
+     "n": 190386,
+     "mean_bp": -17.14123,
+     "t": -228.237,
+     "hit": 0.5366
+    }
+   },
+   "+30m_offer": {
+    "all": {
+     "n": 233838,
+     "mean_bp": -24.37056,
+     "t": -239.059,
+     "hit": 0.4958,
+     "bursts": {
+      "n": 233838,
+      "n_bursts": 23372,
+      "mean_bp": -18.18055,
+      "burst_sd_bp": 38.25331,
+      "t_bursts": -72.658,
+      "hit": 0.5088
+     }
+    },
+    "wide_spread": {
+     "n": 46773,
+     "mean_bp": -33.77353,
+     "t": -117.309,
+     "hit": 0.4487
+    },
+    "tight_spread": {
+     "n": 187065,
+     "mean_bp": -22.01948,
+     "t": -210.816,
+     "hit": 0.5075
+    }
+   }
+  },
+  "inference": "quote-move (no last price on this tape)",
+  "interpretation": "mean_bp > 0 means the passive side EARNS the spread even after the tape moves; <= 0 means it is eaten. A wide-spread markout WORSE than tight is adverse selection: the width is informed flow, not inventory. On an MT5 tape the aggressor is not observable, so a fill is inferred from which side the QUOTE moved on - a lower bound on fills, hence a conservative markout."
+ },
+ "XTIUSD": {
+  "symbol": "XTIUSD",
+  "ticks": 378813,
+  "span": [
+   "2026-11-03 23:00:09.255000",
+   "2026-11-06 21:58:58.793000"
+  ],
+  "bid_fills": 123940,
+  "ask_fills": 122929,
+  "horizons": {
+   "+1m_bid": {
+    "all": {
+     "n": 123928,
+     "mean_bp": -2.68566,
+     "t": -118.948,
+     "hit": 0.5746,
+     "bursts": {
+      "n": 123928,
+      "n_bursts": 12383,
+      "mean_bp": -0.82148,
+      "burst_sd_bp": 4.07032,
+      "t_bursts": -22.459,
+      "hit": 0.6191
+     }
+    },
+    "wide_spread": {
+     "n": 24863,
+     "mean_bp": -1.80152,
+     "t": -43.355,
+     "hit": 0.6041
+    },
+    "tight_spread": {
+     "n": 99065,
+     "mean_bp": -2.90755,
+     "t": -110.966,
+     "hit": 0.5672
+    }
+   },
+   "+1m_offer": {
+    "all": {
+     "n": 122919,
+     "mean_bp": -2.67697,
+     "t": -136.437,
+     "hit": 0.5687,
+     "bursts": {
+      "n": 122919,
+      "n_bursts": 12290,
+      "mean_bp": -1.09769,
+      "burst_sd_bp": 4.01298,
+      "t_bursts": -30.324,
+      "hit": 0.6027
+     }
+    },
+    "wide_spread": {
+     "n": 24619,
+     "mean_bp": -3.14322,
+     "t": -56.89,
+     "hit": 0.5674
+    },
+    "tight_spread": {
+     "n": 98300,
+     "mean_bp": -2.5602,
+     "t": -126.473,
+     "hit": 0.569
+    }
+   },
+   "+5m_bid": {
+    "all": {
+     "n": 123876,
+     "mean_bp": -8.35972,
+     "t": -162.544,
+     "hit": 0.5319,
+     "bursts": {
+      "n": 123876,
+      "n_bursts": 12389,
+      "mean_bp": -4.22969,
+      "burst_sd_bp": 9.74619,
+      "t_bursts": -48.305,
+      "hit": 0.5544
+     }
+    },
+    "wide_spread": {
+     "n": 24863,
+     "mean_bp": -5.19472,
+     "t": -65.708,
+     "hit": 0.5885
+    },
+    "tight_spread": {
+     "n": 99013,
+     "mean_bp": -9.15448,
+     "t": -150.206,
+     "hit": 0.5177
+    }
+   },
+   "+5m_offer": {
+    "all": {
+     "n": 122872,
+     "mean_bp": -6.61345,
+     "t": -179.638,
+     "hit": 0.5333,
+     "bursts": {
+      "n": 122872,
+      "n_bursts": 12287,
+      "mean_bp": -4.35127,
+      "burst_sd_bp": 9.25074,
+      "t_bursts": -52.139,
+      "hit": 0.5331
+     }
+    },
+    "wide_spread": {
+     "n": 24609,
+     "mean_bp": -7.19952,
+     "t": -81.221,
+     "hit": 0.5183
+    },
+    "tight_spread": {
+     "n": 98263,
+     "mean_bp": -6.46667,
+     "t": -160.399,
+     "hit": 0.537
+    }
+   },
+   "+15m_bid": {
+    "all": {
+     "n": 123770,
+     "mean_bp": -16.5374,
+     "t": -168.753,
+     "hit": 0.5033,
+     "bursts": {
+      "n": 123770,
+      "n_bursts": 12378,
+      "mean_bp": -9.14175,
+      "burst_sd_bp": 17.36151,
+      "t_bursts": -58.582,
+      "hit": 0.5215
+     }
+    },
+    "wide_spread": {
+     "n": 24857,
+     "mean_bp": -9.847,
+     "t": -81.776,
+     "hit": 0.5571
+    },
+    "tight_spread": {
+     "n": 98913,
+     "mean_bp": -18.21871,
+     "t": -154.093,
+     "hit": 0.4898
+    }
+   },
+   "+15m_offer": {
+    "all": {
+     "n": 122769,
+     "mean_bp": -10.99599,
+     "t": -200.38,
+     "hit": 0.5364,
+     "bursts": {
+      "n": 122769,
+      "n_bursts": 12277,
+      "mean_bp": -9.25578,
+      "burst_sd_bp": 17.66129,
+      "t_bursts": -58.068,
+      "hit": 0.5307
+     }
+    },
+    "wide_spread": {
+     "n": 24566,
+     "mean_bp": -11.2543,
+     "t": -87.709,
+     "hit": 0.5322
+    },
+    "tight_spread": {
+     "n": 98203,
+     "mean_bp": -10.93137,
+     "t": -180.298,
+     "hit": 0.5375
+    }
+   },
+   "+30m_bid": {
+    "all": {
+     "n": 123625,
+     "mean_bp": -26.74527,
+     "t": -180.99,
+     "hit": 0.4936,
+     "bursts": {
+      "n": 123625,
+      "n_bursts": 12362,
+      "mean_bp": -14.5184,
+      "burst_sd_bp": 27.26512,
+      "t_bursts": -59.205,
+      "hit": 0.5158
+     }
+    },
+    "wide_spread": {
+     "n": 24733,
+     "mean_bp": -13.40902,
+     "t": -78.621,
+     "hit": 0.5689
+    },
+    "tight_spread": {
+     "n": 98892,
+     "mean_bp": -30.08068,
+     "t": -168.834,
+     "hit": 0.4748
+    }
+   },
+   "+30m_offer": {
+    "all": {
+     "n": 122619,
+     "mean_bp": -15.68259,
+     "t": -213.899,
+     "hit": 0.5293,
+     "bursts": {
+      "n": 122619,
+      "n_bursts": 12261,
+      "mean_bp": -13.93636,
+      "burst_sd_bp": 24.74267,
+      "t_bursts": -62.369,
+      "hit": 0.5234
+     }
+    },
+    "wide_spread": {
+     "n": 24589,
+     "mean_bp": -16.28439,
+     "t": -97.099,
+     "hit": 0.5163
+    },
+    "tight_spread": {
+     "n": 98030,
+     "mean_bp": -15.53164,
+     "t": -190.61,
+     "hit": 0.5326
+    }
+   }
+  },
+  "inference": "quote-move (no last price on this tape)",
+  "interpretation": "mean_bp > 0 means the passive side EARNS the spread even after the tape moves; <= 0 means it is eaten. A wide-spread markout WORSE than tight is adverse selection: the width is informed flow, not inventory. On an MT5 tape the aggressor is not observable, so a fill is inferred from which side the QUOTE moved on - a lower bound on fills, hence a conservative markout."
+ }
 }
