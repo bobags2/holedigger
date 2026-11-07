@@ -1,0 +1,20 @@
+{
+ "version": 1,
+ "cap_multiple": 3.0,
+ "cap_bp": {
+  "XAUUSD": 1.3269
+ },
+ "equity_ref": 0.0,
+ "judge_on": [
+  "days_positive_pct",
+  "worst_day",
+  "worst10_share",
+  "trades_per_day_kept"
+ ],
+ "target": {
+  "days_positive_pct_min": 0.5,
+  "worst10_share_max": 0.5,
+  "book_untouched_min": 0.8
+ },
+ "null": "day-clustered sign-flip, per day, 200 worlds"
+}

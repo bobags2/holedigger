@@ -355,3 +355,113 @@ def attach_balance(trades: pd.DataFrame, deals_path: Path) -> pd.DataFrame:
     last["position_id"] = last["positionId"].astype(str)
     out = trades.merge(last[["position_id", "balance_after"]], on="position_id", how="left")
     return out
+
+
+# ---------------------------------------------------------------------------
+# Forward test - frozen spec, judged on shape, with a day-clustered null
+# ---------------------------------------------------------------------------
+
+def forward_test(symbol_to_toll_bp: dict[str, float], *, cap_multiple: float = 3.0,
+                 equity_ref: float = 0.0, out_dir=None) -> Path:
+    """Write the frozen regulation spec the live monitor runs against.
+
+    ``symbol_to_toll_bp`` is per instrument at per-hour granularity when available, so the cap
+    is tighter in the hours the ledger says are cheap. It carries NO fitted numbers: every value
+    is either a measured venue toll or the frozen multiplier.
+    """
+    spec = {
+        "version": 1,
+        "cap_multiple": cap_multiple,
+        "cap_bp": {s: round(cap_multiple * tol, 4) for s, tol in symbol_to_toll_bp.items()},
+        "equity_ref": equity_ref,
+        # the judging criteria, fixed before the run
+        "judge_on": ["days_positive_pct", "worst_day", "worst10_share", "trades_per_day_kept"],
+        "target": {"days_positive_pct_min": 0.50,
+                   "worst10_share_max": 0.50,
+                   "book_untouched_min": 0.80},
+        "null": "day-clustered sign-flip, per day, 200 worlds",
+    }
+    out_dir = Path(out_dir) if out_dir else Path(__file__).resolve().parents[1] / "artifacts"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    p = out_dir / "forward_spec.json"
+    p.write_text(json.dumps(spec, indent=1), encoding="utf-8")
+    return p
+
+
+def evaluate_forward(trades: pd.DataFrame, spec: dict, *, by_hour: bool = True,
+                     toll_by_hour: dict | None = None) -> dict:
+    """Score a book against the frozen forward spec, and null it by day.
+
+    The null keeps the day-clustered structure honest: permuting the sign of whole days is the
+    same construction the rest of this repo uses, and it is what stops "66.7% of days positive"
+    from being an accident of an 84-day book.
+    """
+    t = trades.dropna(subset=["profit", "notional", "open_time"]).copy()
+    t["open_time"] = pd.to_datetime(t["open_time"])
+    t["open_day"] = t["open_time"].dt.normalize()
+    if "sym" not in t and "symbol" in t:
+        t["sym"] = t["symbol"]
+    cap_bp = spec["cap_bp"]
+
+    # THE CAP, ONE WAY. A position is FLOORED at -(cap x notional): the loss cannot exceed
+    # the cap, the gain is untouched. The first version of this used np.minimum, which capped
+    # the WINNERS and turned a +1.21M book into -3.73M - and it passed a smoke run because the
+    # number it printed was plausible-looking. np.maximum(profit, -cap) is the only correct
+    # form.
+    def cap_bp_of(row) -> float:
+        sym = str(row.get("sym") or "")
+        bp = cap_bp.get(sym)
+        if bp is None:
+            return np.inf
+        if toll_by_hour and (sym, row["open_time"].hour) in toll_by_hour:
+            bp = toll_by_hour[(sym, row["open_time"].hour)]
+        return bp
+
+    # symbols without a measured toll in the spec are NOT capped - they keep their own P&L.
+    # Mapping them to NaN silently is how the first version produced a +nan net and a 98%
+    # win rate: shape_metrics then averaged over NaN-poisoned profits.
+    profit = t["profit"].to_numpy(dtype=float)
+    notional = t["notional"].to_numpy(dtype=float)
+    with np.errstate(over="ignore"):
+        bpv = np.array([cap_bp_of(r) for _, r in t.iterrows()], dtype=float)
+    has_cap = np.isfinite(bpv) & (bpv > 0) & np.isfinite(notional)
+    cap_money = np.where(has_cap, bpv / 1e4 * notional, np.inf)
+    capped = np.maximum(profit, -cap_money)          # floor the loss, never the gain
+    t["capped_profit"] = np.where(has_cap, capped, profit)
+    t["r1_breach"] = has_cap & (profit < -cap_money)
+
+    # "kept" here means the trade still happened with its original P&L, NOT that it traded at
+    # all - every position in this book was already executed. A cap truncates a loss, it does
+    # not prevent an entry, so this measures how much of the book the rules left untouched and
+    # renamed from the misleading "trades_per_day_kept" it was first called.
+    kept_frac = float((t["profit"] == t["capped_profit"]).mean())
+    traded_frac = 1.0   # all positions executed; the cap is a stop, not an entry filter
+
+    res = shape_metrics(t.assign(profit=t["capped_profit"]))
+    res["book_untouched_frac"] = round(kept_frac, 3)
+    res["trades_executed_frac"] = round(traded_frac, 3)
+    # positions_capped is the count whose P&L the cap actually changed, not the count that
+    # carried a cap in the spec - the first version printed 3,356 because it counted has_cap
+    res["positions_capped"] = int((t["profit"].to_numpy() != t["capped_profit"].to_numpy()).sum())
+
+    # day-clustered sign-flip null on the capped book's daily totals
+    daily = t.assign(profit=t["capped_profit"]).groupby("open_day")["capped_profit"].sum()
+    rng = np.random.default_rng(20261107)
+    obs = float((daily > 0).mean())
+    dist = []
+    for _ in range(200):
+        sgn = pd.Series(rng.choice([-1.0, 1.0], len(daily)), index=daily.index)
+        dist.append(float(((daily * sgn) > 0).mean()))
+    dist = np.array(dist)
+    res["days_positive"] = round(obs, 4)
+    res["null_days_positive_mean"] = round(float(dist.mean()), 4)
+    res["null_days_positive_p95"] = round(float(np.percentile(dist, 95)), 4)
+    res["days_positive_null_percentile"] = round(float((dist < obs).mean()), 4)
+
+    tg = spec.get("target", {})
+    res["meets_target"] = {
+        "days_positive_pct": res.get("days_positive_pct", obs) >= tg.get("days_positive_pct_min", 0.5),
+        "worst10_share": (res.get("worst10_share") or 0) <= tg.get("worst10_share_max", 0.5),
+        "book_untouched": kept_frac >= tg.get("book_untouched_min", 0.8),
+    }
+    return res
