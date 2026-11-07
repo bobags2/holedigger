@@ -15,6 +15,19 @@ Neither is tradeable even so: the ranking book nets **−24.0 bp/session** again
 round trip), and the certifiable effect size at 137 days is ~3.4 bp. That arithmetic is in
 `docs/where-this-stands.md`.
 
+**Status: a strategy-register front end exists.** `docs/cfd-edges-2026-11.md` re-tests the ten
+CFD edges from the original research report against evidence published after it was written:
+seven of the ten are negative at this venue (each with a source and a mechanism), two are
+positive-but-unimplementable at this frequency, and three — 0DTE hedge unwinding, the 4pm fix,
+Russell reconstitution — are blocked on futures data we don't have, and are the only ones with
+*large* documented effects. `docs/edge-engine.md` is the design note for the
+register-plus-allocator that consumes it, and records what every frozen-spec exploration
+(`research/p1`–`p8`) actually measured. `src/venue_cost.py` is Layer 0 of that design — the
+measured round-trip toll per instrument from two independent sources (MT5 panels and the
+cTrader live quote tape), which every candidate is priced against before it may enter the
+register. Four of the eight explorations found a defect that produced a plausible-looking
+number before the real result, and all four are recorded rather than quietly fixed.
+
 **Status: two sources live. cTrader mid bars (28 instruments, audited and ingested) + MT5
 tick data (10 instruments, 350 days each, ~430M ticks → mid bars with per-bar spreads).
 Six registered families, ~2,300 hypotheses, **zero survivors** — including the two live
