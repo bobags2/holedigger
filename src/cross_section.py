@@ -178,9 +178,44 @@ def data_fingerprint(symbols: list[str], days: np.ndarray, code: str) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:12]
 
 
+def beta_neutralise(R: np.ndarray) -> np.ndarray:
+    """Remove each name's leverage to the equal-weighted cross-section, one shared transform.
+
+    THE DEFECT THIS FIXES, recorded because it invalidated a published percentile: the real
+    statistic in ``run_cross_section`` was computed on RAW returns while
+    ``session_shift_null(beta_neutral=True)`` computed it on RESIDUALISED returns. Those are
+    different functions, so the resulting percentile was not a p-value. Simulated on one-factor
+    data with ZERO idio predictability, the shipped pair false-positived **2.5% at market AR(0)
+    and 100% at AR(0.3)** (``research/p9_ranking_null_calibration.py``) — the real mean was
+    0.0437 against a null p95 of 0.0185, because beta x market-sign persistence enters the raw
+    statistic and is stripped from the null.
+
+    Beta is a TIME-SERIES regression of each name's demeaned session return on the demeaned
+    cross-section, ``cov(name, mkt) / var(mkt)``. The previous version computed
+    ``sum(prev_demeaned x fwd_demeaned) / sum(prev^2)`` per name, which is a LAG-1
+    autocovariance, not a beta — and it estimated beta on the mismatched pair rather than on a
+    single consistent series.
+
+    Both the real statistic and every null world must pass through THIS function. Applied on
+    one side only, any residualisation is worse than none: it manufactures a difference between
+    the observed value and its own null.
+    """
+    mkt = np.nanmean(R, axis=1)
+    sd = np.nanstd(mkt)
+    if not np.isfinite(sd) or sd <= 0:
+        return R
+    Rc = R - mkt[:, None]
+    mc = mkt - np.nanmean(mkt)
+    den = float((mc * mc).sum())
+    if den <= 0:
+        return R
+    beta = (np.nansum(Rc * mc[:, None], axis=0) / den)[None, :]
+    return R - beta * mkt[:, None]
+
+
 def session_shift_null(
     R: np.ndarray, prev: np.ndarray, n_worlds: int, rng: np.random.Generator,
-    *, beta_neutral: bool = True,
+    *, beta_neutral: bool = True, min_shift: int = 2,
 ) -> np.ndarray:
     """Null for the cross-sectional ranking: pair each session's feature with ANOTHER
     session's returns.
@@ -192,31 +227,22 @@ def session_shift_null(
     quantity that has nothing to do with the feature predicting anything. Simulated on
     one-factor zero-predictability data with realistic beta dispersion, that null
     false-positived **42%** of the time at market autocorrelation 0 (17% at 0.3 and 0.6),
-    against a nominal 5%. This one holds at 8%: pairing a session's feature with a *different*
-    session's returns keeps every session's cross-section intact, so beta structure and
-    market-sign persistence are both preserved, and only the feature→future pairing is
-    broken. See ``docs/null-calibration.md``.
+    against a nominal 5%.
 
-    ``beta_neutral=True`` first removes each name's beta to the equal-weighted cross-section,
-    so the statistic measures the feature's *idiosyncratic* ordering power rather than a
-    leveraged bet on the market.
+    ``beta_neutral=True`` applies ``beta_neutralise`` — the SAME transform the real statistic
+    uses, which is what makes the percentile a p-value. See the docstring there for the
+    defect that applied it to the null only.
+
+    ``min_shift`` excludes one-session shifts, which pair a session with itself shifted by one
+    day and can inflate the null's tails on trending data.
     """
     n_days, k = R.shape
-    X, F = R, prev
-    if beta_neutral:
-        # each name's beta to the cross-sectional mean of the same session, estimated on
-        # the session itself; the residual is what remains after removing that name's
-        # market exposure
-        mkt = np.nanmean(R, axis=1)
-        Xc = R - mkt[:, None]
-        Fc = prev - np.nanmean(prev, axis=1)[:, None]
-        num = np.nansum(Fc * Xc, axis=0)
-        den = np.nansum(Fc * Fc, axis=0)
-        beta = np.where(np.abs(den) > 0, num / np.where(den == 0, 1.0, den), 0.0)
-        X = R - beta[None, :] * np.nanmean(R, axis=1)[:, None]
+    X = beta_neutralise(R) if beta_neutral else R
+    F = prev
     out = np.empty(n_worlds)
+    lo = max(int(min_shift), 1)
     for w in range(n_worlds):
-        shift = int(rng.integers(1, n_days))
+        shift = int(rng.integers(lo, max(lo + 1, n_days)))
         fwd = np.roll(X, -shift, axis=0)
         ok = np.isfinite(F) & np.isfinite(fwd)
         out[w] = float(np.nanmean(daily_rank_corr(F, fwd, ok)))
@@ -243,12 +269,19 @@ def run_cross_section(
     prev[1:] = R[:-1]
     prev_ok = np.isfinite(prev) & np.roll(np.isfinite(R), 1, axis=0)
 
+    # THE REAL STATISTIC AND THE NULL MUST BE THE SAME FUNCTION. The version before this
+    # fix computed the real statistic on RAW returns and the null on RESIDUALISED returns, so
+    # the percentile was not a p-value: simulated on zero-predictability one-factor data the
+    # pair false-positived 2.5% at market AR(0) and 100% at AR(0.3), because beta x
+    # market-sign persistence enters the raw statistic and is stripped from the null.
+    Rn = beta_neutralise(R)
+
     candidates = []
     for feat in features:
         for hz in horizons:
-            fwd = np.full_like(R, np.nan)
-            fwd[:-hz] = R[hz:]
-            fwd_ok = np.isfinite(fwd) & np.roll(np.isfinite(R), -hz, axis=0)
+            fwd = np.full_like(Rn, np.nan)
+            fwd[:-hz] = Rn[hz:]
+            fwd_ok = np.isfinite(fwd) & np.roll(np.isfinite(Rn), -hz, axis=0)
             if hz > 1:
                 fwd_ok[-hz:] = False
             F = prev if feat == "prev_session_ret" else R
@@ -266,11 +299,11 @@ def run_cross_section(
                 })
                 continue
 
-            # The null pairs this session's feature with a DIFFERENT session's returns. The
-            # within-session feature shuffle that shipped here first was simulated at a 42%
-            # false-positive rate on zero-predictability data; this one holds at 8%.
+            # The null pairs this session's feature with a DIFFERENT session's returns, on the
+            # SAME beta-neutralised panel the real statistic used - that symmetry is what makes
+            # the percentile a p-value.
             rng = np.random.default_rng(config.SEED + (abs(hash_int(feat, hz))))
-            null = session_shift_null(R, prev, n_worlds, rng, beta_neutral=True)
+            null = session_shift_null(Rn, prev, n_worlds, rng, beta_neutral=True)
             candidates.append({
                 "feature": feat, "horizon": hz, "real_rho": real,
                 "n_sessions": n_sessions, "n_symbols": len(syms),

@@ -8,7 +8,7 @@
       1,
       2
     ],
-    "worlds": 400,
+    "worlds": 2000,
     "seed": 20261004,
     "session_utc": [
       13,
@@ -18,31 +18,31 @@
   },
   "family": {
     "candidates": 2,
-    "real_max_abs_rho": 0.03502620739471032,
-    "null_max_mean": 0.00036453358995392854,
-    "real_percentile": 1.0
+    "real_max_abs_rho": 0.034856318637876825,
+    "null_max_mean": 0.008347882455812066,
+    "real_percentile": 0.981
   },
   "candidates": [
     {
       "feature": "prev_session_ret",
       "horizon": 1,
-      "real_rho": 0.03502620739471032,
+      "real_rho": 0.034856318637876825,
       "n_sessions": 137,
       "n_symbols": 105,
-      "null_mean": -7.191349012152663e-05,
-      "null_p95": 0.016243294963424776,
-      "percentile": 1.0,
+      "null_mean": 0.008165294872751873,
+      "null_p95": 0.02866492406485772,
+      "percentile": 0.981,
       "direction": 1.0
     },
     {
       "feature": "prev_session_ret",
       "horizon": 2,
-      "real_rho": 0.00721460982066359,
+      "real_rho": 0.0020368629282432587,
       "n_sessions": 136,
       "n_symbols": 105,
-      "null_mean": -0.0006571536897863304,
-      "null_p95": 0.017308903259651842,
-      "percentile": 0.61,
+      "null_mean": 0.008530470038872258,
+      "null_p95": 0.030320444804572803,
+      "percentile": 0.1265,
       "direction": 1.0
     }
   ]

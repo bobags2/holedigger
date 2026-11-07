@@ -94,21 +94,32 @@ def test_session_shift_null_is_calibrated() -> None:
     """The ranking null must reject at ~alpha on zero-predictability one-factor data.
 
     The shipped within-session feature shuffle was measured at a **42%** false-positive rate
-    with zero market autocorrelation, because it destroys beta structure. The session-shift
-    null is asserted at <= 25%.
+    with zero market autocorrelation, because it destroys beta structure.
+
+    THIS TEST ORIGINALLY HID THE DEFECT IT WAS WRITTEN TO CATCH. It computed the real
+    statistic from raw ``fwd`` while the null residualised internally, so it passed at 0% while
+    the production pipeline false-positived **100%** at market AR(1)=0.3. A calibration test
+    that applies a different transform to the real statistic than to the null measures the
+    null against itself and proves nothing. It now mirrors ``run_cross_section`` exactly: both
+    sides pass through ``beta_neutralise``.
     """
-    trials, hits = 16, 0
-    for t in range(trials):
-        R, prev = _one_factor_returns(seed=4000 + t, mkt_autocorr=0.0)
-        n_sessions = R.shape[0]
-        fwd = np.zeros_like(R)
-        fwd[:-1] = R[1:]
-        ok = np.isfinite(prev) & np.roll(np.isfinite(R), -1, axis=0)
-        real = float(np.nanmean(cs.daily_rank_corr(prev, fwd, ok)))
-        null = cs.session_shift_null(R, prev, 120, np.random.default_rng(8000 + t), beta_neutral=True)
-        hits += abs(real) > np.percentile(np.abs(null), 95)
-    rate = hits / trials
-    assert rate <= 0.25, f"session-shift null rejected {rate:.0%} of zero-predictability trials"
+    for mkt_autocorr in (0.0, 0.3, 0.6):
+        trials, hits = 24, 0
+        for t in range(trials):
+            R, prev = _one_factor_returns(seed=4000 + t, mkt_autocorr=mkt_autocorr)
+            Rn = cs.beta_neutralise(R)          # the SAME transform production uses
+            fwd = np.zeros_like(Rn)
+            fwd[:-1] = Rn[1:]
+            ok = np.isfinite(prev) & np.roll(np.isfinite(Rn), -1, axis=0)
+            real = float(np.nanmean(cs.daily_rank_corr(prev, fwd, ok)))
+            null = cs.session_shift_null(Rn, prev, 120, np.random.default_rng(8000 + t),
+                                         beta_neutral=True)
+            hits += abs(real) > np.percentile(np.abs(null), 95)
+        rate = hits / trials
+        assert rate <= 0.15, (
+            f"session-shift null rejected {rate:.0%} of zero-predictability trials at market "
+            f"AR({mkt_autocorr}) - the real statistic and the null must be the same function"
+        )
 
 
 def test_state_labels_are_day_homogeneous() -> None:
