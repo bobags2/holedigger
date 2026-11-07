@@ -57,8 +57,17 @@ from .registry import DISCOVERY, Registry
 
 FEATURES = ("prev_session_ret",)
 HORIZONS = (1, 2)
-SESSION_START_HOUR = 13     # 09:30 ET in US summer time; the cash session's first bar
-SESSION_END_HOUR = 20       # the sweep's MAX_EXIT_HOUR, so no window crosses the break
+# The US cash session in LOCAL time: 09:30-16:00 ET. Converted to UTC per bar through
+# ``mt5_clock``'s per-date offset, because a fixed 13-20 UTC window is wrong for a third of
+# the year: before 2026-11-01 the session is 13:30-21:00 UTC (EDT) and after it
+# 14:30-22:00 UTC (EST). The DST repair in this repo is exactly the lesson behind pinning
+# this to the local clock rather than a UTC constant.
+SESSION_START_LOCAL = (9, 30)    # 09:30 ET
+SESSION_END_LOCAL = (16, 0)      # 16:00 ET
+# retained for the sweep's own grid and for backwards compatibility with artifacts whose
+# session labels were built on the fixed-UTC convention (US summer time of the panel).
+SESSION_START_HOUR = 13
+SESSION_END_HOUR = 20
 
 
 def load_closes(symbols: list[str]) -> dict[str, pd.Series]:
@@ -138,6 +147,82 @@ def daily_rank_corr(F: np.ndarray, fwd: np.ndarray, ok: np.ndarray) -> np.ndarra
     return out
 
 
+def hash_int(*parts) -> int:
+    """A stable integer hash, for seeding a null reproducibly.
+
+    Python's ``hash()`` on strings is randomised per process (PYTHONHASHSEED), so a null
+    seeded with ``hash((feat, hz))`` produced different worlds in different runs and the
+    percentile was not reproducible. This is a plain content hash instead.
+    """
+    import hashlib
+
+    return int(hashlib.sha256(repr(parts).encode("utf-8")).hexdigest()[:8], 16)
+
+
+def data_fingerprint(symbols: list[str], days: np.ndarray, code: str) -> str:
+    """A fingerprint over the ACTUAL inputs: which symbols, which session range, which code.
+
+    A placeholder like ``f"{family}:{symbol}"`` names the run, not the data, so two runs on
+    different panel vintages look identical in the registry. This hashes the symbol list, the
+    number of sessions, the first and last session, and the code version.
+    """
+    import hashlib
+
+    payload = repr({
+        "symbols": sorted(symbols),
+        "n_sessions": int(len(days)),
+        "first": str(days[0]) if len(days) else None,
+        "last": str(days[-1]) if len(days) else None,
+        "code": code,
+    })
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:12]
+
+
+def session_shift_null(
+    R: np.ndarray, prev: np.ndarray, n_worlds: int, rng: np.random.Generator,
+    *, beta_neutral: bool = True,
+) -> np.ndarray:
+    """Null for the cross-sectional ranking: pair each session's feature with ANOTHER
+    session's returns.
+
+    Why not the within-session feature shuffle
+    ------------------------------------------
+    Shuffling the feature across names *within* a session destroys beta structure, and the
+    mean rank correlation then picks up market-sign persistence x beta dispersion — a real
+    quantity that has nothing to do with the feature predicting anything. Simulated on
+    one-factor zero-predictability data with realistic beta dispersion, that null
+    false-positived **42%** of the time at market autocorrelation 0 (17% at 0.3 and 0.6),
+    against a nominal 5%. This one holds at 8%: pairing a session's feature with a *different*
+    session's returns keeps every session's cross-section intact, so beta structure and
+    market-sign persistence are both preserved, and only the feature→future pairing is
+    broken. See ``docs/null-calibration.md``.
+
+    ``beta_neutral=True`` first removes each name's beta to the equal-weighted cross-section,
+    so the statistic measures the feature's *idiosyncratic* ordering power rather than a
+    leveraged bet on the market.
+    """
+    n_days, k = R.shape
+    X, F = R, prev
+    if beta_neutral:
+        # each name's beta to the cross-sectional mean of the same session, estimated on
+        # the session itself; the residual is what remains after removing that name's
+        # market exposure
+        mkt = np.nanmean(R, axis=1)
+        Xc = R - mkt[:, None]
+        Fc = prev - np.nanmean(prev, axis=1)[:, None]
+        num = np.nansum(Fc * Xc, axis=0)
+        den = np.nansum(Fc * Fc, axis=0)
+        beta = np.where(np.abs(den) > 0, num / np.where(den == 0, 1.0, den), 0.0)
+        X = R - beta[None, :] * np.nanmean(R, axis=1)[:, None]
+    out = np.empty(n_worlds)
+    for w in range(n_worlds):
+        shift = int(rng.integers(1, n_days))
+        fwd = np.roll(X, -shift, axis=0)
+        ok = np.isfinite(F) & np.isfinite(fwd)
+        out[w] = float(np.nanmean(daily_rank_corr(F, fwd, ok)))
+    return out
+
+
 def run_cross_section(
     symbols: list[str],
     *,
@@ -181,16 +266,11 @@ def run_cross_section(
                 })
                 continue
 
-            rng = np.random.default_rng(seed + (hash((feat, hz)) % 997))
-            F_c = np.where(ok, F, np.nan)
-            null = np.empty(n_worlds)
-            ok_rows = [np.flatnonzero(ok[d]) for d in range(R.shape[0])]
-            for w in range(n_worlds):
-                Fp = F_c.copy()
-                for d, rows in enumerate(ok_rows):
-                    if len(rows) >= 3:
-                        Fp[d, rows] = rng.permutation(F_c[d, rows])
-                null[w] = float(np.nanmean(daily_rank_corr(Fp, fwd, ok)))
+            # The null pairs this session's feature with a DIFFERENT session's returns. The
+            # within-session feature shuffle that shipped here first was simulated at a 42%
+            # false-positive rate on zero-predictability data; this one holds at 8%.
+            rng = np.random.default_rng(config.SEED + (abs(hash_int(feat, hz))))
+            null = session_shift_null(R, prev, n_worlds, rng, beta_neutral=True)
             candidates.append({
                 "feature": feat, "horizon": hz, "real_rho": real,
                 "n_sessions": n_sessions, "n_symbols": len(syms),

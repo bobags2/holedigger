@@ -134,15 +134,18 @@ def markout(flags: pd.DataFrame, horizon_min: int) -> pd.DataFrame:
     """
     ts = pd.DatetimeIndex(flags["ts"])
     mid_v = flags["mid"].to_numpy()
-    # A POSITION shift, not a time shift. ``mid.shift(freq=...)`` is a no-op on a regular
-    # index (verified: it returns the series unchanged), so the earlier version marked every
-    # fill out against the fill's own mid. The horizon is expressed in rows of the tape, and
-    # the tape's cadence is recorded so a reader can convert rows to minutes.
-    cadence = ts.to_series().diff().median()
-    rows = int(round(pd.Timedelta(minutes=horizon_min) / cadence)) if pd.notna(cadence) and cadence else 0
+    # The forward mid is chosen by TIME, not by rows. Converting minutes to rows through the
+    # median tick gap made "+30m" not-30-minutes on a bursty tape (measured: the live XAGUSD
+    # tape's median gap is far shorter than its busy-hour gap, so a 30-minute horizon
+    # silently covered 3 minutes of clock time at the open). ``searchsorted`` on the tape's
+    # own timestamps gives the first tick at or after ``t + horizon``, which is what a
+    # markout horizon means.
+    ts_ns = ts.asi8
+    target = ts_ns + np.int64(pd.Timedelta(minutes=horizon_min).value)
+    idx_fwd = np.searchsorted(ts_ns, target, side="left")
     fwd = np.full(len(mid_v), np.nan)
-    if rows > 0 and rows < len(mid_v):
-        fwd[: len(mid_v) - rows] = mid_v[rows:]
+    inside = idx_fwd < len(mid_v)
+    fwd[inside] = mid_v[idx_fwd[inside]]
     # A resting BID fills at the bid = mid - half_spread (below the mid at fill time), so a
     # bid-side markout is mid[t+H] - bid_fill. A resting OFFER fills at the ask = mid +
     # half_spread, so its markout is ask_fill - mid[t+H]. The markout is in PRICE units, so
@@ -182,6 +185,35 @@ def markout(flags: pd.DataFrame, horizon_min: int) -> pd.DataFrame:
     return out
 
 
+def burst_cluster_stats(a: np.ndarray, ts_ns: np.ndarray, gap_quantile: float = 0.9) -> dict:
+    """Per-burst means of ``a``, then a t-stat over those means.
+
+    ``ts_ns`` are the timestamps of the same observations. A burst boundary is a gap larger
+    than the ``gap_quantile`` quantile of inter-observation gaps.
+    """
+    ok = np.isfinite(a)
+    a, t = a[ok], ts_ns[ok]
+    if len(a) < 30:
+        return {"n": int(len(a)), "mean_bp": None, "t_bursts": None, "n_bursts": 0}
+    gaps = np.diff(t)
+    thr = np.quantile(gaps, gap_quantile) if len(gaps) else 0
+    boundary = np.concatenate([[0], np.flatnonzero(gaps > thr) + 1, [len(a)]])
+    means = np.array([a[boundary[i]:boundary[i + 1]].mean()
+                      for i in range(len(boundary) - 1) if boundary[i + 1] > boundary[i]])
+    if len(means) < 10:
+        return {"n": int(len(a)), "mean_bp": round(float(a.mean()), 5),
+                "t_bursts": None, "n_bursts": int(len(means))}
+    sd = means.std(ddof=1)
+    return {
+        "n": int(len(a)),
+        "n_bursts": int(len(means)),
+        "mean_bp": round(float(means.mean()), 5),
+        "burst_sd_bp": round(float(sd), 5),
+        "t_bursts": round(float(means.mean() / (sd / np.sqrt(len(means)))), 3) if sd > 0 else None,
+        "hit": round(float((means > 0).mean()), 4),
+    }
+
+
 def _stats(a: np.ndarray) -> dict:
     a = a[np.isfinite(a)]
     if len(a) < 30:
@@ -198,14 +230,20 @@ def run(symbol: str, *, horizons: tuple[int, ...] = HORIZONS_MIN) -> dict:
     rows = {}
     for H in horizons:
         m = markout(flags, H)
+        ts_ns = pd.DatetimeIndex(flags["ts"]).asi8
         for side in ("markout_bid_bp", "earned_bid_bp", "earned_offer_bp"):
             v = m[side].to_numpy()
             sp = m["spread_bp"].to_numpy()
             ok = np.isfinite(v) & np.isfinite(sp)
             wide = ok & (sp >= np.nanquantile(sp[ok], SPREAD_QUANTILE))
+            # per-burst inference: ticks inside one burst share a cause, so the honest unit
+            # is the burst, not the tick. ``t`` over ticks is reported for continuity with the
+            # bar-level study and ``t_bursts`` is the number that carries.
             key = f"+{H}m_{'bid' if 'bid' in side else 'offer'}"
+            cell = _stats(v)
+            cell["bursts"] = burst_cluster_stats(v, ts_ns)
             rows[key] = {
-                "all": _stats(v),
+                "all": cell,
                 "wide_spread": _stats(v[wide]),
                 "tight_spread": _stats(v[ok & ~wide]),
             }

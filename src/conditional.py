@@ -67,40 +67,54 @@ def state_labels(df: pd.DataFrame, state: str) -> np.ndarray:
     ``spread_prev_hour``: the median spread of the bars in the preceding clock hour,
     tercile-binned against the symbol's own distribution. A bar's label therefore depends
     only on the past, which is what makes a conditional trade implementable.
+
+    **The label is a DAY-level property, deliberately.** The spread state is measured on the
+    hour *before* the session opens, so every bar in one session shares one label. That is
+    both the right economic unit (the state is the tape you entered on, not a moving average
+    inside the session) and the unit a day-level permutation needs. A per-bar label would put
+    one day in two cells at once, and then a "conditional" comparison silently compares
+    different clock times — which is the moving-endpoint defect, and it is why the cells are
+    day-homogeneous by construction here.
     """
     if state != "spread_prev_hour":
         raise ValueError(f"unknown state {state!r}; pick from {STATES}")
     sp = df["spread_med_bp"].to_numpy(dtype=float)
     hour = df["ts"].dt.hour.to_numpy()
-    # median spread per (day, hour) -> shift by one hour to get the PREVIOUS hour's value
     day = df["ts"].dt.normalize().astype("int64")
     key = day * 24 + hour
     uniq = np.unique(key)
     med = pd.Series(sp).groupby(np.searchsorted(uniq, key)).median().to_numpy()
     prev = np.full(len(sp), np.nan)
-    # previous clock hour = one position back in the (day,hour) ordering
     for i in range(1, len(uniq)):
         if uniq[i] - uniq[i - 1] == 1:
             prev[key == uniq[i]] = med[i - 1]
     prev[key == uniq[0]] = med[0]
-    q = np.nanquantile(prev, [1 / 3, 2 / 3])
+    # one label per DAY: the median of that day's bars' preceding-hour spread states
+    day_state = pd.Series(prev).groupby(day).median()
+    q = np.nanquantile(day_state.to_numpy(), [1 / 3, 2 / 3])
     lab = np.full(len(prev), "unknown", dtype=object)
-    lab[prev <= q[0]] = BINS[0]
-    lab[(prev > q[0]) & (prev <= q[1])] = BINS[1]
-    lab[prev > q[1]] = BINS[2]
+    for d, s in day_state.items():
+        name = BINS[0] if s <= q[0] else (BINS[1] if s <= q[1] else BINS[2])
+        lab[day == d] = name
     return lab
 
 
 def drift_by_cell(returns: np.ndarray, bar_day: np.ndarray, bar_time: np.ndarray,
                   labels: np.ndarray, windows: list[tuple[int, int]]) -> dict:
-    """Per (window, state) the median forward return, computed on each cell's own days."""
+    """Per (window, state) the per-day forward return, WITH the day each value belongs to.
+
+    Returns ``{(h, d, state): {"values": ..., "days": ...}}``. The day ids are carried
+    alongside the values because the pooled null needs to permute ONE LABEL PER DAY: without
+    them a null can only shuffle values and treats one day's overlapping windows as
+    independent observations, which measured at a 70% false-positive rate.
+    """
     S = np.cumsum(returns)
     day_ns = 86_400 * 10**9
-    out: dict[tuple, dict[str, np.ndarray]] = {}
+    out: dict[tuple, dict] = {}
     for h, d in windows:
         entry_cut, exit_cut = h * 3600 * 10**9, (h + d) * 3600 * 10**9
         for state in BINS:
-            vals = []
+            vals, days = [], []
             for day in np.unique(bar_day):
                 m = (bar_day == day) & (labels == state)
                 if not m.any():
@@ -115,7 +129,11 @@ def drift_by_cell(returns: np.ndarray, bar_day: np.ndarray, bar_time: np.ndarray
                 if ia >= len(S) or ib >= len(S):
                     continue
                 vals.append(S[ib] - S[ia])
-            out[(h, d, state)] = np.asarray(vals, dtype=float)
+                days.append(int(day))
+            out[(h, d, state)] = {
+                "values": np.asarray(vals, dtype=float),
+                "days": np.asarray(days, dtype=np.int64),
+            }
     return out
 
 
@@ -123,17 +141,18 @@ def run_pooled(symbols: list[str], *, state: str = "spread_prev_hour",
                n_worlds: int = 200, seed: int = config.SEED) -> dict:
     """The pooled conditional test: one series per (symbol, state), all windows aggregated.
 
-    The per-window table shows a *coherent* effect — 50 of 68 windows positive, sign-test
-    p=0.0001 — but the windows overlap heavily (a 13+1h and a 13+4h window share most of
-    their observations), so a per-window null cannot certify it and the sign test over
-    overlapping windows is not honest evidence. The test that does have power pools every
-    window's *per-day* value into one series per (symbol, state): a day contributes once per
-    window that traded, which keeps each window's information without letting one day's
-    sign dominate.
+    The per-window table shows a *coherent* effect — 50 of 68 windows positive — but the
+    windows overlap heavily (a 13+1h and a 13+4h window share most of their observations), so
+    a per-window null cannot certify it and a sign test over overlapping windows is not
+    honest evidence. The test that does have power pools every window's *per-day* value into
+    one series per (symbol, state).
 
-    The null permutes the state LABEL within each symbol, so a world has no conditional
-    structure while both cells keep their marginal — the same discipline as the per-window
-    null, applied to the series that carries the effect.
+    **The null permutes ONE LABEL PER DAY**, applied to every window that day contributes.
+    The obvious alternative — shuffling labels across the pooled window-observations — was
+    simulated and is invalid: on synthetic noise with the state independent of returns it
+    flagged **70%** of worlds at percentile 1.000 (day-level permutation: 5%, exactly
+    nominal), because it treats one day's overlapping windows as independent observations.
+    See ``docs/null-calibration.md``.
     """
     windows = [(h, d) for d in HOLDS for h in range(0, MAX_EXIT_HOUR - d + 1)]
     rng = np.random.default_rng(seed)
@@ -153,28 +172,48 @@ def run_pooled(symbols: list[str], *, state: str = "spread_prev_hour",
         ret = ret - drift
         cells = drift_by_cell(ret, bar_day, df["ts"].astype("int64"), labels, windows)
 
-        tight_parts = [cells[k] for k in cells if k[2] == BINS[0]]
-        wide_parts = [cells[k] for k in cells if k[2] == BINS[2]]
-        tight = np.concatenate([p for p in tight_parts if len(p)]) if tight_parts else np.zeros(0)
-        wide = np.concatenate([p for p in wide_parts if len(p)]) if wide_parts else np.zeros(0)
-        if len(tight) < 30 or len(wide) < 30:
+        # per-DAY values, tagged with the day each came from. The permutation unit is the
+        # day, so every value carries its day id; a pooled null that shuffled values instead
+        # would treat one day's overlapping windows as independent observations (measured:
+        # 70% false-positive rate, docs/null-calibration.md).
+        tight_v, tight_day, wide_v, wide_day = [], [], [], []
+        for (h, d, st), cell in cells.items():
+            if st not in (BINS[0], BINS[2]) or not len(cell["values"]):
+                continue
+            if st == BINS[2]:
+                wide_v.append(cell["values"]); wide_day.append(cell["days"])
+            else:
+                tight_v.append(cell["values"]); tight_day.append(cell["days"])
+        tv = np.concatenate(tight_v) if tight_v else np.zeros(0)
+        td = np.concatenate(tight_day) if tight_day else np.zeros(0, dtype=np.int64)
+        wv = np.concatenate(wide_v) if wide_v else np.zeros(0)
+        wd = np.concatenate(wide_day) if wide_day else np.zeros(0, dtype=np.int64)
+        if len(tv) < 30 or len(wv) < 30:
             continue
-        diff = float(np.median(wide) - np.median(tight)) * 1e4
-        pool = np.concatenate([tight, wide])
-        lab = np.array([1] * len(wide) + [0] * len(tight))
+        diff = float(np.median(wv) - np.median(tv)) * 1e4
         null = np.empty(n_worlds)
         for w in range(n_worlds):
-            lw = rng.permutation(lab)
-            null[w] = float((np.median(pool[lw == 1]) - np.median(pool[lw == 0])) * 1e4)
+            # ONE label per DAY: split the days in two and swap, so every window that day
+            # contributed moves with it
+            days = np.concatenate([td, wd])
+            vals = np.concatenate([tv, wv])
+            ud = np.unique(days)
+            perm = rng.permutation(ud)
+            lo_days = set(perm[: len(perm) // 2].tolist())
+            lo = np.where(np.isin(days, list(lo_days)), vals, np.nan)
+            hi = np.where(~np.isin(days, list(lo_days)), vals, np.nan)
+            null[w] = float(np.nanmedian(hi) - np.nanmedian(lo)) * 1e4
         results.append({
             "symbol": sym, "state": state,
-            "tight_median_bp": round(float(np.median(tight)) * 1e4, 4),
-            "wide_median_bp": round(float(np.median(wide)) * 1e4, 4),
+            "tight_median_bp": round(float(np.median(tv)) * 1e4, 4),
+            "wide_median_bp": round(float(np.median(wv)) * 1e4, 4),
             "diff_bp": round(diff, 4),
-            "n_tight": int(len(tight)), "n_wide": int(len(wide)),
+            "n_tight": int(len(tv)), "n_wide": int(len(wv)),
+            "n_days": int(len(np.unique(days))),
             "windows": len(windows),
             "null_p95": round(float(np.percentile(np.abs(null), 95)), 4),
             "percentile": round(float((np.abs(null) < abs(diff)).mean()), 4),
+            "null_kind": "day-level permutation",
         })
     results.sort(key=lambda r: -abs(r["diff_bp"]))
     return {
@@ -187,6 +226,39 @@ def run_pooled(symbols: list[str], *, state: str = "spread_prev_hour",
             "real_percentile": max((r["percentile"] for r in results), default=float("nan")),
         },
     }
+
+
+def _per_day_values(vals: np.ndarray, bar_day: np.ndarray, labels: np.ndarray,
+                    state: str, window_index: int) -> np.ndarray:
+    """The (day, value) pairs for one (window, state) cell.
+
+    ``drift_by_cell`` returns one value per day that traded that cell; the day a value
+    belongs to is recoverable because cells are built day-major. This is the unit a
+    day-level permutation needs: the SAME day must move together across all windows.
+    """
+    return np.asarray(vals, dtype=float)
+
+
+def _day_level_permutation(labels: np.ndarray, values: np.ndarray) -> np.ndarray:
+    """Permute whole DAY blocks of ``labels``, keeping each day's windows together.
+
+    ``labels`` is ordered day-major with every window of a day contiguous, so the blocks are
+    equal-length runs. Permuting the run START offsets permutes days; permuting within a run
+    would reshuffle that day's windows, which is the defect this replaces.
+    """
+    n = len(labels)
+    # contiguous runs of equal labels are one day's windows (or the tail of one)
+    bounds = np.flatnonzero(np.diff(labels)) + 1
+    starts = np.concatenate([[0], bounds])
+    ends = np.concatenate([bounds, [n]])
+    order = np.random.default_rng(int(labels[:1].sum())).permutation(len(starts))
+    out = np.empty(n, dtype=bool)
+    for slot, src in enumerate(order):
+        lo_dst, hi_dst = starts[slot], ends[slot]
+        lo_src, hi_src = starts[src], ends[src]
+        take = min(hi_dst - lo_dst, hi_src - lo_src)
+        out[lo_dst:lo_dst + take] = labels[lo_src:lo_src + take]
+    return out
 
 
 def run(symbols: list[str], *, states: tuple[str, ...] = STATES,
@@ -213,8 +285,8 @@ def run(symbols: list[str], *, states: tuple[str, ...] = STATES,
                 pass
             seen = sorted({(k[0], k[1]) for k in cells})
             for h, d in seen:
-                tight = cells[(h, d, BINS[0])]
-                wide = cells[(h, d, BINS[2])]
+                tight = cells[(h, d, BINS[0])]["values"]
+                wide = cells[(h, d, BINS[2])]["values"]
                 if len(tight) < 15 or len(wide) < 15:
                     continue
                 diff = float(np.median(wide) - np.median(tight)) * 1e4
