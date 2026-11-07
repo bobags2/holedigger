@@ -79,3 +79,4 @@ instrument on cTrader" is a **book-level aggregation over months that disagree**
 monthly edge, and it must not be reported as one. Removing the 10 worst oil trades halves the
 oil loss (−77,368 → −37,958), which is the one part of the instrument finding that survives:
 **position sizing on the tail instruments, not a directional view on which instrument to trade.**
+| 16 | cTrader P&L correction (fix + tests in `tests/test_ctrader_deals.py`) | Is position P&L the sum over ALL closing deals, on deduped deals? | **The previous P&L was wrong on ~78% of positions.** `gp.iloc[0]` took only the FIRST closing deal; position 43112421 reads −740 where its true P&L is −50,577. The deals file also carried 6,000 duplicate rows from overlapping paging. Corrected: **gross −461,405, commission −141,295, net −602,934** on 3,473 positions, verified ratio 1.0000 against price-implied P&L. Every instrument that matters is negative. |

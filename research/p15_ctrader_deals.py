@@ -11,16 +11,11 @@ The compiled protobufs already carry PROTO_OA_DEAL_LIST_REQ/RES and
 PROTO_OA_DEAL_LIST_BY_POSITION_ID_REQ/RES; this module wires them up rather than adding a
 convention to the bridge.
 
-WHAT COMES BACK and what to expect. cTrader's Deal list gives (ctidTraderAccountId,
-positionId, volume, filledVolume, symbolId, createTimestamp, executionTimestamp,
-executionPrice, baseToUsdConversionRate, closePositionDetail{...}). Two entries per round
-trip - the opening deal and the closing deal - so the position-level P&L is the sum of the two
-sides, then converted to bp of notional. That is a different shape from MT5's one-row-per-
-closed-position, so the loader normalises to the same schema as
-research/p12_trade_metalabel.load_trades so everything downstream is reusable.
-
-The broker pricing in bp is `executionPrice` adjusted by `baseToUsdConversionRate`, which makes
-cross-currency P&L comparable; the volume is in the symbol's contract units.
+THE SCHEMA, and the traps in it. cTrader emits one row per FILL, not per position, and a
+position can be entered and exited across many fills. `closePositionDetail` is a newline-
+embedded string carrying the broker's own grossProfit/swap/commission per closing deal, which
+is the authoritative P&L and is correct under partial closes. Four defects were found getting
+here, each of which produced a plausible number; they are documented on `to_positions`.
 """
 from __future__ import annotations
 
@@ -111,7 +106,7 @@ async def pull_deals(days: int = 730, out: Path | None = None) -> list[dict]:
 def _cpd(d: "pd.DataFrame", field: str) -> "np.ndarray":
     """Pull ``field`` out of cTrader's newline-embedded ``closePositionDetail`` strings.
 
-    The field is a single string like ``"entryPrice: 29758.22\ngrossProfit: -740\nswap: 0\n..."``,
+    The field is a single string like ``"entryPrice: 29758.22\\ngrossProfit: -740\\nswap: 0\\n..."``,
     so it needs line-splitting, not a column read.
     """
     out = np.full(len(d), np.nan)
@@ -134,15 +129,24 @@ def _cpd(d: "pd.DataFrame", field: str) -> "np.ndarray":
 def to_positions(deals: list[dict]) -> pd.DataFrame:
     """Positions from the deal list, in the same shape the MT5 loader produces.
 
-    REBUILT AFTER READING THE ACTUAL SHAPE, because the first version returned 0 rows from
-    13,334 real deals. Three things the column view hides:
+    FOUR DEFECTS, in the order they were found, because each one produced a plausible number:
 
     1. ``dealStatus`` is the integer ``2`` for every row - not the word FILLED - so a
-       "contains FILLED" filter matches nothing and silently empties the frame.
+       "contains FILLED" filter matched nothing and returned 0 positions from 13,334 real
+       deals.
     2. Positions have 4 fills, not 2, for 2,391 of them (partial and scale-out exits), so an
-       "open + close pair" assumption drops about 71% of the history.
-    3. ``closePositionDetail`` carries the broker's own ``grossProfit``, which is correct under
-       partial fills, so reconstructing P&L from prices is both unnecessary and wrong.
+       "open + close pair" assumption dropped about 71% of the history.
+    3. **``gp.iloc[0]`` took only the FIRST closing deal's grossProfit.** A position with 17
+       closing deals was priced at its first one. Verified on position 43112421: the first
+       closing deal says -740 and the true position P&L is -50,577. The loader now SUMS all
+       closing deals' grossProfit + swap + commission.
+    4. **The deals file contained 6,000 duplicate rows** (13,334 rows, 7,334 unique dealIds),
+       because the 30-day paging windows overlap and the sub-pager re-fetches window edges.
+       Every total was therefore ~2x the truth. Deduplicated on dealId before anything is
+       computed.
+
+    Notional uses the SUM of opening fills' filledVolume x their prices, so net_bp is per unit
+    of what was actually put on rather than per unit of the first fill.
     """
     if not deals:
         return pd.DataFrame()
@@ -152,38 +156,59 @@ def to_positions(deals: list[dict]) -> pd.DataFrame:
               "executionTimestamp"):
         if c in d:
             d[c] = pd.to_numeric(d[c], errors="coerce")
+    # (4) dedup on the broker's own deal id - the only key that cannot repeat
+    d = d.drop_duplicates(subset=["dealId"], keep="first")
     d["ts"] = pd.to_datetime(d["executionTimestamp"], unit="ms")
     d["grossProfit"] = _cpd(d, "grossProfit")
+    d["swap"] = _cpd(d, "swap")
+    d["commission"] = _cpd(d, "commission")
     d = d.dropna(subset=["positionId", "ts", "executionPrice"]).sort_values("ts")
 
     rows = []
     for pid, g in d.groupby("positionId", sort=True):
         if not len(g):
             continue
-        opening = g.iloc[0]
-        closing = g.iloc[-1]
-        side = 1.0 if int(opening.get("tradeSide", 1) or 1) == 1 else -1.0
-        vol = float(opening.get("filledVolume", 0) or 0)
-        px_o = float(opening.get("executionPrice", np.nan))
-        px_c = float(closing.get("executionPrice", np.nan))
-        notional = vol * max(px_o, 1e-9)
-        gp = g["grossProfit"].dropna()
-        pnl = float(gp.iloc[0]) if len(gp) else side * (px_c - px_o) * vol
+        # a closing deal is one that carries a closePositionDetail; opening fills do not
+        closing = g[g["grossProfit"].notna()]
+        opening = g[g["grossProfit"].isna()]
+        if opening.empty:
+            opening = g
+        first = opening.iloc[0]
+        side = 1.0 if int(first.get("tradeSide", 1) or 1) == 1 else -1.0
+
+        # notional from ALL opening fills (partial entries), in price units
+        open_vol = float(opening["filledVolume"].abs().sum())
+        px_o = float(first.get("executionPrice", np.nan))
+        notional = open_vol * max(px_o, 1e-9)
+
+        # (3) P&L is the SUM over every closing deal, not the first one
+        gp_sum = float(closing["grossProfit"].sum())
+        sw_sum = float(closing["swap"].sum())
+        cm_sum = float(closing["commission"].sum())
+        pnl = gp_sum + sw_sum + cm_sum
+        # fall back to the price reconstruction only when the broker gave us no close detail
+        if closing.empty:
+            px_c = float(g.iloc[-1].get("executionPrice", np.nan))
+            pnl = side * (px_c - px_o) * open_vol
+
         rows.append({
             "position_id": str(pid),
-            "symbol_id": int(opening.get("symbolId", -1)) if pd.notna(opening.get("symbolId")) else -1,
+            "symbol_id": int(first.get("symbolId", -1)) if pd.notna(first.get("symbolId")) else -1,
             "type": "buy" if side > 0 else "sell",
-            "open_time": opening["ts"],
-            "close_time": closing["ts"],
+            "open_time": first["ts"],
+            "close_time": closing["ts"].max() if len(closing) else g.iloc[-1]["ts"],
             "open_price": px_o,
-            "close_price": px_c,
-            "open_volume": vol,
+            "open_volume": open_vol,
             "n_fills": int(len(g)),
+            "n_closing_fills": int(len(closing)),
             "notional": notional,
+            "gross_profit": gp_sum,
+            "swap": sw_sum,
+            "commission": cm_sum,
             "profit": pnl,
             "net_bp": pnl / max(notional, 1e-9) * 1e4,
-            "hold_s": (closing["ts"] - opening["ts"]).total_seconds(),
-            "closed": bool(len(gp)),
+            "hold_s": ((closing["ts"].max() if len(closing) else g.iloc[-1]["ts"]) - first["ts"]).total_seconds(),
+            "closed": bool(len(closing)),
         })
     return pd.DataFrame(rows)
 
@@ -199,7 +224,9 @@ def main() -> None:
         out2 = out.with_name("ctrader_positions.parquet")
         p.to_parquet(out2, index=False)
         print(f"  wrote {out2}")
-        print(f"  net_bp mean {p['net_bp'].mean():+.3f}  win {100*(p['net_bp'] > 0).mean():.0f}%")
+        print(f"  commission {p['commission'].sum():+,.2f} | swap {p['swap'].sum():+,.2f} | "
+              f"gross {p['gross_profit'].sum():+,.2f} | NET {p['profit'].sum():+,.2f}")
+        print(f"  net_bp mean {p['net_bp'].mean():+.3f}  win {100*(p['profit'] > 0).mean():.0f}%")
 
 
 if __name__ == "__main__":
