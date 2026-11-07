@@ -54,12 +54,19 @@ def _state_path(symbol: str) -> Path:
 def _frame_from_raw(rows) -> pd.DataFrame:
     """Normalise whatever the MCP tool returned into the canonical tick frame.
 
-    The MCP payload's field names are not assumed: whatever the terminal returns is mapped by
-    position-insensitive key matching for the handful of fields this study needs, and the
-    frame is returned even when some are absent (they become NaN and are dropped downstream).
+    Verified against the live tool (2026-11-06): ``get_chart_ticks_history`` returns
+    ``{symbol, period, data_available_from, ok, history: [{time_ms, bid, ask}]}`` — **no last
+    price and no volume**. So ``last`` and ``volume`` are simply absent on this provider,
+    which is why ``tick_markout`` infers the aggressor from which side the quote moved rather
+    than from a print's side. The field mapping is by key name, tolerant of either the dict
+    payload or a bare list, and of ``time_ms`` millisecond precision.
     """
     if not rows:
         return pd.DataFrame(columns=["ts", "bid", "ask", "mid", "volume", "flags"])
+    if isinstance(rows, dict):
+        rows = rows.get("history") or rows.get("ticks") or rows.get("data") or []
+    if not rows:
+        return pd.DataFrame(columns=["ts", "bid", "ask", "last", "volume", "flags"])
     df = pd.DataFrame(rows)
     lower = {c.lower(): c for c in df.columns}
 
@@ -69,8 +76,11 @@ def _frame_from_raw(rows) -> pd.DataFrame:
                 return df[lower[n]]
         return pd.Series(np.nan, index=df.index)
 
+    ts_raw = pick("time_ms", "time", "timestamp", "ts")
     out = pd.DataFrame({
-        "ts": pd.to_datetime(pick("time", "timestamp", "ts"), errors="coerce", utc=True).dt.tz_localize(None),
+        # MT5 reports millisecond precision and a naive (terminal-local) stamp; the caller
+        # converts to true UTC through mt5_clock
+        "ts": pd.to_datetime(ts_raw, errors="coerce"),
         "bid": pd.to_numeric(pick("bid"), errors="coerce"),
         "ask": pd.to_numeric(pick("ask"), errors="coerce"),
         "last": pd.to_numeric(pick("last", "price"), errors="coerce"),
@@ -103,9 +113,7 @@ def pull_ticks(mt5: Mt5, symbol: str, start: datetime, until: datetime) -> pd.Da
         except Exception as exc:  # a dead chunk must not kill the run
             print(f"  {t:%Y-%m-%d %H:%M} -> {chunk_end:%H:%M}: {type(exc).__name__} {exc}")
             rows = []
-        if isinstance(rows, dict):
-            rows = rows.get("ticks") or rows.get("data") or rows.get("result") or []
-        f = _frame_from_raw(rows)
+        f = _frame_from_raw(rows)      # unwraps the tool's {ok, history:[...]} payload
         if len(f):
             frames.append(f)
         t = chunk_end

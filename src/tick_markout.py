@@ -65,35 +65,64 @@ def load_ticks(symbol: str) -> pd.DataFrame:
 
 
 def fill_flags(df: pd.DataFrame) -> pd.DataFrame:
-    """Per-tick: was this print an aggressive sell into a resting bid, or a buy into an offer?
+    """Per-tick: which side did the tape move, and would a resting order have been filled.
 
-    The tape's own aggressor is inferred from which side the print traded at: a print at the
-    **ask** is a buyer crossing (aggressive buy); a print at the **bid** is a seller crossing
-    (aggressive sell, which fills a resting bid). The ``mid`` is the reference a passive fill
-    prices against, and ``half_spread`` is what the passive side captures by definition of
-    the fill.
+    **What this tape can and cannot tell us.** MT5's tick history carries ``time_ms``,
+    ``bid`` and ``ask`` only — no last price and no volume, so there is no print-level
+    aggressor to observe. The convention "a print at the ask is an aggressive buy" cannot be
+    evaluated here, and any module claiming to measure markout at print level on this tape
+    would be measuring something else.
+
+    What IS observable is which side the quote changed on, and that carries information:
+
+    * the **bid rises** (the ask unchanged or behind) → buyers lifted the offer, so a
+      resting OFFER would have been filled;
+    * the **bid falls** → sellers hit the bid, so a resting BID would have been filled.
+
+    That is a *quote-move* inference, weaker than a print-level one: a resting order is also
+    filled when the quote moves *toward* it without a trade, so this measures a lower bound
+    on fills and is conservative about the markout. The direction convention is the honest
+    one and it is stated rather than assumed.
+
+    ``last`` is still honoured when a tape does carry it (a different provider), so the
+    print-level path remains available for a tape that has one.
     """
     bid = df["bid"].to_numpy(float)
     ask = df["ask"].to_numpy(float)
-    mid = df["mid"].to_numpy(float)
-    last = df["last"].to_numpy(float) if "last" in df else np.where(np.isfinite(mid), mid, np.nan)
-    # The aggressor is whichever side the print traded AT. When the print sits exactly
-    # between bid and ask (a mid print, or a tie), it crossed neither: no fill. The tie is
-    # resolved by strict inequality on BOTH distances, so a print at the ask requires
-    # being strictly closer to the ask than to the bid.
-    d_bid = np.abs(last - bid)
-    d_ask = np.abs(last - ask)
-    both = np.isfinite(d_bid) & np.isfinite(d_ask)
-    at_bid = both & (d_bid < d_ask)
-    at_ask = both & (d_ask < d_bid)
-    spread = np.where(np.isfinite(ask) & np.isfinite(bid), ask - bid, np.nan)
+    mid = df["mid"].to_numpy(float) if "mid" in df else (bid + ask) / 2.0
+    last = df["last"].to_numpy(float) if "last" in df else np.full(len(bid), np.nan)
+    has_last = np.isfinite(last)
+
+    up = np.zeros(len(bid), dtype=bool)     # the quote moved up -> a resting offer filled
+    down = np.zeros(len(bid), dtype=bool)   # the quote moved down -> a resting bid filled
+    up[1:] = np.diff(bid) > 0
+    down[1:] = np.diff(bid) < 0
+    # non-positive spread ticks carry no information about direction
+    ok = np.isfinite(bid) & np.isfinite(ask) & (ask > bid)
+
+    if has_last.any():
+        # print-level path: a print at the ask is an aggressive buy, at the bid a sell
+        d_bid = np.abs(last - bid)
+        d_ask = np.abs(last - ask)
+        both = np.isfinite(d_bid) & np.isfinite(d_ask)
+        at_bid = both & (d_bid < d_ask)
+        at_ask = both & (d_ask < d_bid)
+        bid_fill = (at_bid & ok) | (down & ok & ~has_last)
+        ask_fill = (at_ask & ok) | (up & ok & ~has_last)
+        inference = "print-level where last is available, quote-move otherwise"
+    else:
+        bid_fill = down & ok                  # resting bid filled (tape moved down)
+        ask_fill = up & ok                    # resting offer filled (tape moved up)
+        inference = "quote-move (no last price on this tape)"
+
+    spread = np.where(ok, ask - bid, np.nan)
     return pd.DataFrame({
         "ts": df["ts"].to_numpy(),
         "mid": mid, "bid": bid, "ask": ask, "spread": spread,
-        "bid_fill": at_bid & ~at_ask,      # aggressive sell -> our resting bid is filled
-        "ask_fill": at_ask & ~at_bid,      # aggressive buy  -> our resting offer is filled
+        "bid_fill": bid_fill,
+        "ask_fill": ask_fill,
         "half_spread": spread / 2.0,
-    })
+    }), inference
 
 
 def markout(flags: pd.DataFrame, horizon_min: int) -> pd.DataFrame:
@@ -129,6 +158,27 @@ def markout(flags: pd.DataFrame, horizon_min: int) -> pd.DataFrame:
         "spread_bp": flags["spread"].to_numpy() / px * 1e4,
         "hour": ts.hour.to_numpy(),
     })
+    # DRIFT-NET markout: what a passive fill actually earned, = the half spread it captured
+    # minus what the tape's subsequent move gave back. This is NOT the raw markout minus the
+    # drift (that subtraction leaves the half-spread itself and is horizon-flat by
+    # construction - it was tried and discarded). Instead:
+    #     captured  = half_spread            (paid nothing extra to get filled)
+    #     gave back = adverse move over the horizon, measured from the fill mid
+    #     earned    = captured - gave back
+    # For a resting BID the adverse move is the mid FALLING (fwd < mid); for a resting OFFER
+    # it is the mid RISING. So:
+    #     earned_bid   =  half_spread - max(0, mid - fwd)
+    #     earned_offer =  half_spread - max(0, fwd - mid)
+    # which is horizon-dependent, sign-correct, and answers the question that matters: does
+    # resting earn the spread after the tape moves against you?
+    half_bp = flags["half_spread"].to_numpy() / px * 1e4
+    move = (fwd - mid_v) / px * 1e4                      # positive = mid rose
+    out["earned_bid_bp"] = np.where(
+        flags["bid_fill"], half_bp - np.maximum(-move, 0.0), np.nan
+    )
+    out["earned_offer_bp"] = np.where(
+        flags["ask_fill"], half_bp - np.maximum(move, 0.0), np.nan
+    )
     return out
 
 
@@ -144,19 +194,20 @@ def _stats(a: np.ndarray) -> dict:
 
 def run(symbol: str, *, horizons: tuple[int, ...] = HORIZONS_MIN) -> dict:
     df = load_ticks(symbol)
-    flags = fill_flags(df)
+    flags, inference = fill_flags(df)
     rows = {}
     for H in horizons:
         m = markout(flags, H)
-        for side in ("markout_bid_bp", "markout_offer_bp"):
+        for side in ("markout_bid_bp", "earned_bid_bp", "earned_offer_bp"):
             v = m[side].to_numpy()
-            wide = np.isfinite(v) & (m["spread_bp"].to_numpy() >=
-                                     np.nanquantile(m["spread_bp"].to_numpy(), SPREAD_QUANTILE))
+            sp = m["spread_bp"].to_numpy()
+            ok = np.isfinite(v) & np.isfinite(sp)
+            wide = ok & (sp >= np.nanquantile(sp[ok], SPREAD_QUANTILE))
             key = f"+{H}m_{'bid' if 'bid' in side else 'offer'}"
             rows[key] = {
                 "all": _stats(v),
                 "wide_spread": _stats(v[wide]),
-                "tight_spread": _stats(v[np.isfinite(v) & ~wide]),
+                "tight_spread": _stats(v[ok & ~wide]),
             }
     return {
         "symbol": symbol,
@@ -165,10 +216,13 @@ def run(symbol: str, *, horizons: tuple[int, ...] = HORIZONS_MIN) -> dict:
         "bid_fills": int(flags["bid_fill"].sum()),
         "ask_fills": int(flags["ask_fill"].sum()),
         "horizons": rows,
+        "inference": inference,
         "interpretation": (
             "mean_bp > 0 means the passive side EARNS the spread even after the tape moves; "
             "<= 0 means it is eaten. A wide-spread markout WORSE than tight is adverse "
-            "selection: the width is informed flow, not inventory."
+            "selection: the width is informed flow, not inventory. On an MT5 tape the "
+            "aggressor is not observable, so a fill is inferred from which side the QUOTE "
+            "moved on - a lower bound on fills, hence a conservative markout."
         ),
     }
 

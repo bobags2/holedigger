@@ -1,0 +1,524 @@
+{
+  "XAUUSD": {
+    "symbol": "XAUUSD",
+    "ticks": 600000,
+    "span": [
+      "2026-11-03 23:00:00.617000",
+      "2026-11-06 16:15:59.169000"
+    ],
+    "bid_fills": 289911,
+    "ask_fills": 295774,
+    "horizons": {
+      "+1m_bid": {
+        "all": {
+          "n": 289658,
+          "mean_bp": -2.40082,
+          "t": -306.933,
+          "hit": 0.5047
+        },
+        "wide_spread": {
+          "n": 57932,
+          "mean_bp": -2.93488,
+          "t": -136.823,
+          "hit": 0.4831
+        },
+        "tight_spread": {
+          "n": 231726,
+          "mean_bp": -2.26731,
+          "t": -278.124,
+          "hit": 0.5101
+        }
+      },
+      "+1m_offer": {
+        "all": {
+          "n": 295563,
+          "mean_bp": -2.71188,
+          "t": -184.051,
+          "hit": 0.4984
+        },
+        "wide_spread": {
+          "n": 59114,
+          "mean_bp": -3.18504,
+          "t": -69.82,
+          "hit": 0.5315
+        },
+        "tight_spread": {
+          "n": 236449,
+          "mean_bp": -2.59358,
+          "t": -179.462,
+          "hit": 0.4901
+        }
+      },
+      "+5m_bid": {
+        "all": {
+          "n": 288662,
+          "mean_bp": -5.5077,
+          "t": -324.673,
+          "hit": 0.4944
+        },
+        "wide_spread": {
+          "n": 57733,
+          "mean_bp": -6.65426,
+          "t": -152.581,
+          "hit": 0.4592
+        },
+        "tight_spread": {
+          "n": 230929,
+          "mean_bp": -5.22106,
+          "t": -287.849,
+          "hit": 0.5032
+        }
+      },
+      "+5m_offer": {
+        "all": {
+          "n": 294705,
+          "mean_bp": -6.94418,
+          "t": -208.422,
+          "hit": 0.5085
+        },
+        "wide_spread": {
+          "n": 58941,
+          "mean_bp": -8.01332,
+          "t": -80.708,
+          "hit": 0.546
+        },
+        "tight_spread": {
+          "n": 235764,
+          "mean_bp": -6.6769,
+          "t": -199.79,
+          "hit": 0.4992
+        }
+      },
+      "+15m_bid": {
+        "all": {
+          "n": 286253,
+          "mean_bp": -9.01509,
+          "t": -342.121,
+          "hit": 0.5086
+        },
+        "wide_spread": {
+          "n": 57254,
+          "mean_bp": -9.242,
+          "t": -150.222,
+          "hit": 0.5158
+        },
+        "tight_spread": {
+          "n": 228999,
+          "mean_bp": -8.95836,
+          "t": -307.578,
+          "hit": 0.5068
+        }
+      },
+      "+15m_offer": {
+        "all": {
+          "n": 292475,
+          "mean_bp": -13.06119,
+          "t": -230.483,
+          "hit": 0.5027
+        },
+        "wide_spread": {
+          "n": 58495,
+          "mean_bp": -15.19735,
+          "t": -109.416,
+          "hit": 0.4913
+        },
+        "tight_spread": {
+          "n": 233980,
+          "mean_bp": -12.52715,
+          "t": -203.059,
+          "hit": 0.5055
+        }
+      },
+      "+30m_bid": {
+        "all": {
+          "n": 282535,
+          "mean_bp": -12.3881,
+          "t": -372.118,
+          "hit": 0.5038
+        },
+        "wide_spread": {
+          "n": 56508,
+          "mean_bp": -12.29705,
+          "t": -162.388,
+          "hit": 0.5236
+        },
+        "tight_spread": {
+          "n": 226027,
+          "mean_bp": -12.41086,
+          "t": -334.907,
+          "hit": 0.4988
+        }
+      },
+      "+30m_offer": {
+        "all": {
+          "n": 289240,
+          "mean_bp": -19.97579,
+          "t": -249.541,
+          "hit": 0.5057
+        },
+        "wide_spread": {
+          "n": 57848,
+          "mean_bp": -21.10508,
+          "t": -110.066,
+          "hit": 0.4941
+        },
+        "tight_spread": {
+          "n": 231392,
+          "mean_bp": -19.69347,
+          "t": -224.241,
+          "hit": 0.5086
+        }
+      }
+    },
+    "inference": "quote-move (no last price on this tape)",
+    "interpretation": "mean_bp > 0 means the passive side EARNS the spread even after the tape moves; <= 0 means it is eaten. A wide-spread markout WORSE than tight is adverse selection: the width is informed flow, not inventory. On an MT5 tape the aggressor is not observable, so a fill is inferred from which side the QUOTE moved on - a lower bound on fills, hence a conservative markout."
+  },
+  "XTIUSD": {
+    "symbol": "XTIUSD",
+    "ticks": 378813,
+    "span": [
+      "2026-11-03 23:00:09.255000",
+      "2026-11-06 21:58:58.793000"
+    ],
+    "bid_fills": 123940,
+    "ask_fills": 122929,
+    "horizons": {
+      "+1m_bid": {
+        "all": {
+          "n": 123865,
+          "mean_bp": -4.31553,
+          "t": -158.238,
+          "hit": 0.5455
+        },
+        "wide_spread": {
+          "n": 24863,
+          "mean_bp": -3.3316,
+          "t": -61.058,
+          "hit": 0.5818
+        },
+        "tight_spread": {
+          "n": 99002,
+          "mean_bp": -4.56263,
+          "t": -146.238,
+          "hit": 0.5363
+        }
+      },
+      "+1m_offer": {
+        "all": {
+          "n": 122864,
+          "mean_bp": -4.20471,
+          "t": -171.662,
+          "hit": 0.5431
+        },
+        "wide_spread": {
+          "n": 24608,
+          "mean_bp": -4.52439,
+          "t": -72.988,
+          "hit": 0.5365
+        },
+        "tight_spread": {
+          "n": 98256,
+          "mean_bp": -4.12464,
+          "t": -156.257,
+          "hit": 0.5448
+        }
+      },
+      "+5m_bid": {
+        "all": {
+          "n": 123579,
+          "mean_bp": -12.56889,
+          "t": -207.064,
+          "hit": 0.4997
+        },
+        "wide_spread": {
+          "n": 24724,
+          "mean_bp": -8.87545,
+          "t": -82.846,
+          "hit": 0.5636
+        },
+        "tight_spread": {
+          "n": 98855,
+          "mean_bp": -13.49263,
+          "t": -190.871,
+          "hit": 0.4837
+        }
+      },
+      "+5m_offer": {
+        "all": {
+          "n": 122576,
+          "mean_bp": -10.57058,
+          "t": -203.306,
+          "hit": 0.5368
+        },
+        "wide_spread": {
+          "n": 24571,
+          "mean_bp": -10.48262,
+          "t": -93.859,
+          "hit": 0.5203
+        },
+        "tight_spread": {
+          "n": 98005,
+          "mean_bp": -10.59263,
+          "t": -180.479,
+          "hit": 0.5409
+        }
+      },
+      "+15m_bid": {
+        "all": {
+          "n": 122795,
+          "mean_bp": -23.88832,
+          "t": -209.151,
+          "hit": 0.5013
+        },
+        "wide_spread": {
+          "n": 24646,
+          "mean_bp": -13.70776,
+          "t": -86.644,
+          "hit": 0.5845
+        },
+        "tight_spread": {
+          "n": 98149,
+          "mean_bp": -26.44474,
+          "t": -194.377,
+          "hit": 0.4804
+        }
+      },
+      "+15m_offer": {
+        "all": {
+          "n": 121819,
+          "mean_bp": -17.37635,
+          "t": -226.129,
+          "hit": 0.5191
+        },
+        "wide_spread": {
+          "n": 24394,
+          "mean_bp": -17.21493,
+          "t": -101.004,
+          "hit": 0.5031
+        },
+        "tight_spread": {
+          "n": 97425,
+          "mean_bp": -17.41676,
+          "t": -202.318,
+          "hit": 0.5231
+        }
+      },
+      "+30m_bid": {
+        "all": {
+          "n": 121675,
+          "mean_bp": -36.10365,
+          "t": -215.217,
+          "hit": 0.4784
+        },
+        "wide_spread": {
+          "n": 24375,
+          "mean_bp": -18.51807,
+          "t": -77.68,
+          "hit": 0.6278
+        },
+        "tight_spread": {
+          "n": 97300,
+          "mean_bp": -40.50908,
+          "t": -203.964,
+          "hit": 0.441
+        }
+      },
+      "+30m_offer": {
+        "all": {
+          "n": 120697,
+          "mean_bp": -24.27578,
+          "t": -220.067,
+          "hit": 0.5361
+        },
+        "wide_spread": {
+          "n": 24165,
+          "mean_bp": -26.84853,
+          "t": -105.664,
+          "hit": 0.4875
+        },
+        "tight_spread": {
+          "n": 96532,
+          "mean_bp": -23.63175,
+          "t": -193.235,
+          "hit": 0.5482
+        }
+      }
+    },
+    "inference": "quote-move (no last price on this tape)",
+    "interpretation": "mean_bp > 0 means the passive side EARNS the spread even after the tape moves; <= 0 means it is eaten. A wide-spread markout WORSE than tight is adverse selection: the width is informed flow, not inventory. On an MT5 tape the aggressor is not observable, so a fill is inferred from which side the QUOTE moved on - a lower bound on fills, hence a conservative markout."
+  },
+  "XAGUSD": {
+    "symbol": "XAGUSD",
+    "ticks": 600000,
+    "span": [
+      "2026-11-03 23:00:00.621000",
+      "2026-11-06 17:20:36.036000"
+    ],
+    "bid_fills": 240382,
+    "ask_fills": 236099,
+    "horizons": {
+      "+1m_bid": {
+        "all": {
+          "n": 240159,
+          "mean_bp": -2.57805,
+          "t": -144.764,
+          "hit": 0.583
+        },
+        "wide_spread": {
+          "n": 48045,
+          "mean_bp": -1.92535,
+          "t": -55.194,
+          "hit": 0.5896
+        },
+        "tight_spread": {
+          "n": 192114,
+          "mean_bp": -2.74127,
+          "t": -133.95,
+          "hit": 0.5813
+        }
+      },
+      "+1m_offer": {
+        "all": {
+          "n": 235876,
+          "mean_bp": -3.1444,
+          "t": -148.627,
+          "hit": 0.5728
+        },
+        "wide_spread": {
+          "n": 47199,
+          "mean_bp": -3.28862,
+          "t": -47.011,
+          "hit": 0.6063
+        },
+        "tight_spread": {
+          "n": 188677,
+          "mean_bp": -3.10833,
+          "t": -156.74,
+          "hit": 0.5644
+        }
+      },
+      "+5m_bid": {
+        "all": {
+          "n": 239335,
+          "mean_bp": -8.69247,
+          "t": -211.586,
+          "hit": 0.5466
+        },
+        "wide_spread": {
+          "n": 47893,
+          "mean_bp": -6.31468,
+          "t": -98.071,
+          "hit": 0.5691
+        },
+        "tight_spread": {
+          "n": 191442,
+          "mean_bp": -9.28733,
+          "t": -190.807,
+          "hit": 0.541
+        }
+      },
+      "+5m_offer": {
+        "all": {
+          "n": 235052,
+          "mean_bp": -11.05386,
+          "t": -239.621,
+          "hit": 0.5232
+        },
+        "wide_spread": {
+          "n": 47018,
+          "mean_bp": -13.37571,
+          "t": -100.847,
+          "hit": 0.5196
+        },
+        "tight_spread": {
+          "n": 188034,
+          "mean_bp": -10.47329,
+          "t": -222.461,
+          "hit": 0.5242
+        }
+      },
+      "+15m_bid": {
+        "all": {
+          "n": 237511,
+          "mean_bp": -15.58519,
+          "t": -229.191,
+          "hit": 0.5668
+        },
+        "wide_spread": {
+          "n": 47518,
+          "mean_bp": -9.76124,
+          "t": -98.929,
+          "hit": 0.6343
+        },
+        "tight_spread": {
+          "n": 189993,
+          "mean_bp": -17.04178,
+          "t": -210.382,
+          "hit": 0.5499
+        }
+      },
+      "+15m_offer": {
+        "all": {
+          "n": 233297,
+          "mean_bp": -22.12327,
+          "t": -261.701,
+          "hit": 0.4811
+        },
+        "wide_spread": {
+          "n": 46668,
+          "mean_bp": -31.54837,
+          "t": -120.498,
+          "hit": 0.437
+        },
+        "tight_spread": {
+          "n": 186629,
+          "mean_bp": -19.76645,
+          "t": -240.904,
+          "hit": 0.4921
+        }
+      },
+      "+30m_bid": {
+        "all": {
+          "n": 234612,
+          "mean_bp": -22.45308,
+          "t": -253.031,
+          "hit": 0.5638
+        },
+        "wide_spread": {
+          "n": 46925,
+          "mean_bp": -15.31462,
+          "t": -112.603,
+          "hit": 0.5982
+        },
+        "tight_spread": {
+          "n": 187687,
+          "mean_bp": -24.23781,
+          "t": -230.443,
+          "hit": 0.5551
+        }
+      },
+      "+30m_offer": {
+        "all": {
+          "n": 230397,
+          "mean_bp": -35.29021,
+          "t": -260.384,
+          "hit": 0.4709
+        },
+        "wide_spread": {
+          "n": 46086,
+          "mean_bp": -52.56173,
+          "t": -134.113,
+          "hit": 0.4291
+        },
+        "tight_spread": {
+          "n": 184311,
+          "mean_bp": -30.97156,
+          "t": -227.131,
+          "hit": 0.4813
+        }
+      }
+    },
+    "inference": "quote-move (no last price on this tape)",
+    "interpretation": "mean_bp > 0 means the passive side EARNS the spread even after the tape moves; <= 0 means it is eaten. A wide-spread markout WORSE than tight is adverse selection: the width is informed flow, not inventory. On an MT5 tape the aggressor is not observable, so a fill is inferred from which side the QUOTE moved on - a lower bound on fills, hence a conservative markout."
+  }
+}

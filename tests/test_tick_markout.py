@@ -33,7 +33,7 @@ def test_fill_direction_is_read_from_the_tape() -> None:
     last[1::2] = 100.00       # aggressive sells on odd ticks (printed at the bid)
     df = pd.DataFrame({"ts": ts, "bid": bid, "ask": ask, "mid": mid,
                        "last": last, "volume": np.ones(n)})
-    flags = tm.fill_flags(df)
+    flags, _inf = tm.fill_flags(df)
     assert flags["ask_fill"].sum() == n // 2, flags["ask_fill"].sum()
     assert flags["bid_fill"].sum() == n // 2, flags["bid_fill"].sum()
     assert (flags["ask_fill"] == ~flags["bid_fill"]).all()
@@ -57,7 +57,7 @@ def test_earned_spread_tape_marks_out_positive() -> None:
     mid = path
     last = np.where(np.sin(t) > 0, ask, bid)      # buys on the upswing, sells on the downswing
     df = pd.DataFrame({"ts": ts, "bid": bid, "ask": ask, "mid": mid, "last": last})
-    flags = tm.fill_flags(df)
+    flags, _inf = tm.fill_flags(df)
     m = tm.markout(flags, 60)
     bid_m = m["markout_bid_bp"].to_numpy()
     ok = np.isfinite(bid_m)
@@ -96,7 +96,7 @@ def test_adverse_selection_tape_marks_out_negative_and_worse_when_wide() -> None
     mid = path
     last = np.where(reg, bid, np.where(descending, bid, ask))
     df = pd.DataFrame({"ts": ts, "bid": bid, "ask": ask, "mid": mid, "last": last})
-    flags = tm.fill_flags(df)
+    flags, _inf = tm.fill_flags(df)
     m = tm.markout(flags, 60)
     v = m["markout_bid_bp"].to_numpy()
     sp = m["spread_bp"].to_numpy()
@@ -129,7 +129,7 @@ def test_horizon_shift_is_in_time_not_in_rows() -> None:
     ts = pd.date_range("2026-01-05 09:30", periods=n, freq="1s")
     mid = 100.0 + np.arange(n) * 1e-5
     df = pd.DataFrame({"ts": ts, "bid": mid - 0.01, "ask": mid + 0.01, "mid": mid})
-    flags = tm.fill_flags(df)
+    flags, _inf = tm.fill_flags(df)
     m = tm.markout(flags, 60)
     # 60 seconds later the mid is 60 ticks higher: markout for a bid fill = +60*1e-5 - half
     v = m["markout_bid_bp"].to_numpy()
