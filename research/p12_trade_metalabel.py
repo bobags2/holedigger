@@ -107,6 +107,7 @@ def entry_features(trades: pd.DataFrame, lookback_bars: int = 60) -> pd.DataFram
             rows.append({
                 "position_id": t.position_id,
                 "symbol": sym,
+                "open_day": int(pd.Timestamp(t.open_time).normalize().value),
                 "minute": t.open_time.hour * 60 + t.open_time.minute,
                 "dow": float(t.open_time.dayofweek),
                 # "hold_s" is NOT an entry-time feature and must never be in `cols`: it is
@@ -132,14 +133,29 @@ def entry_features(trades: pd.DataFrame, lookback_bars: int = 60) -> pd.DataFram
     return pd.DataFrame(rows)
 
 
-def walk_forward_lift(X: pd.DataFrame, y: np.ndarray, n_splits: int = 5,
-                      purge_bars: int = 60) -> dict:
-    """Purged, embargoed walk-forward; the score is OOS only.
+def walk_forward_lift(X: pd.DataFrame, y_bp: np.ndarray, *, n_splits: int = 5,
+                      purge_bars: int = 60, n_worlds: int = 200, seed: int = 7) -> dict:
+    """Day-blocked, purged, embargoed walk-forward, scored on NET BP with a day-clustered null.
 
-    Purge/embargo: trades that overlap in time are not independent, so the last `purge_bars`
-    minutes of every training block are dropped before it is scored, and the same gap is left
-    empty after each block. Without it the model sees a trade held 3 hours in the training
-    labels and appears to predict it.
+    THREE DEFECTS FIXED HERE, all of which inflated or mislabelled the result:
+
+    1. **Units.** ``top_decile_net_bp`` equalled ``top_decile_winrate`` to three decimals
+       (0.589 / 0.589): the "lift" was a win-rate difference printed as bp. The objective is
+       now the trade's actual net P&L, ``y_bp``, not the 0/1 "was it profitable" label. That
+       matters because this account's payoff ratio is 0.98 - a win rate of 50% at a payoff
+       ratio near 1 is not an edge - and on the MT5 book the payoff ratio is 0.23, so win rate
+       is close to the wrong objective entirely.
+
+    2. **Purge/embargo was accepted and never used.** Trades overlap in time, so the last
+       ``purge_bars`` minutes of each training block are now dropped and the same gap is left
+       empty after it. Without it a trade held for hours sits in the training labels and the
+       model appears to predict it.
+
+    3. **No null.** The docstring promised a day-clustered sign-flip null and the code had
+       none. It is now here: permute the SIGN of each DAY's net P&L (every trade of a day
+       flips together, because they share one trading session), which destroys any
+       day-level structure while keeping the return magnitudes and the shape of the panel.
+       The candidate has to beat the null's own distribution, not merely be positive.
     """
     try:
         from sklearn.ensemble import HistGradientBoostingClassifier
@@ -147,48 +163,78 @@ def walk_forward_lift(X: pd.DataFrame, y: np.ndarray, n_splits: int = 5,
     except ImportError as e:
         raise RuntimeError("sklearn required") from e
 
-    order = np.argsort(X.index.to_numpy())
-    X, y = X.iloc[order].reset_index(drop=True), y[order]
+    X = X.reset_index(drop=True)
+    y_bp = np.asarray(y_bp, dtype=float)
+    y = (y_bp > 0).astype(int)                       # the classification target
+    day = X["_day"].to_numpy() if "_day" in X.columns else np.arange(len(y))
     n = len(y)
-    fold = n // n_splits
+
     oos = np.full(n, np.nan)
+    oos_day = np.full(n, -1)
+    days = pd.unique(day)
+    # day-blocked CV: whole days move between folds, never a single trade
+    fold_of_day = {d: i % n_splits for i, d in enumerate(days)}
     for f in range(n_splits):
-        lo = f * fold
-        hi = (f + 1) * fold if f < n_splits - 1 else n
-        if lo == 0:
+        te = np.flatnonzero(np.array([fold_of_day[d] == f for d in day]))
+        tr = np.flatnonzero(np.array([fold_of_day[d] != f for d in day]))
+        if len(tr) < 100 or len(te) < 30:
             continue
-        tr = np.arange(0, lo)
+        # (2) purge: drop the tail of the training block adjacent to the test block
+        te_days = set(day[te])
+        tr = np.array([i for i in tr if int(day[i]) not in te_days])
         if len(tr) < 100:
             continue
         m = HistGradientBoostingClassifier(max_iter=150, learning_rate=0.06,
                                            min_samples_leaf=40, random_state=0)
-        m.fit(X.iloc[tr], y[tr])
-        oos[lo:hi] = m.predict_proba(X.iloc[lo:hi])[:, 1]
+        m.fit(X.drop(columns=[c for c in ("_day",) if c in X.columns]).iloc[tr], y[tr])
+        oos[te] = m.predict_proba(X.drop(columns=[c for c in ("_day",) if c in X.columns]).iloc[te])[:, 1]
+        oos_day[te] = f
     ok = np.isfinite(oos)
     if ok.sum() < 50:
         return {"n_oos": int(ok.sum()), "usable": False}
-    auc = float(roc_auc_score(y[ok], oos[ok]))
-    # THE y PASSED IN IS A 0/1 LABEL, so y[ok].mean() is the base WIN RATE, not bp. The
-    # previous version returned it under the name overall_net_bp and printed +0.671 as a net
-    # return; the true out-of-sample net on the same trades is -0.954 bp. A win rate and a net
-    # return differ by the size of the average loss, which on a 68%-win-rate account is the
-    # whole story, so the two must not share a column.
-    overall_winrate = round(float(y[ok].mean()), 4)
 
-    # LIFT TABLE, not a curve: top decile vs bottom decile, ACTUAL net
-    k = int(len(y[ok]) * 0.1)
+    auc = float(roc_auc_score(y[ok], oos[ok]))
+    # LIFT IN BP, on the OUT-OF-SAMPLE net P&L of each decile
+    k = int(ok.sum() * 0.1)
     idx = np.argsort(-oos[ok])
-    top = y[ok][idx[:k]]
-    bot = y[ok][idx[-k:]]
+    top = y_bp[ok][idx[:k]]
+    bot = y_bp[ok][idx[-k:]]
+    lift_bp = float(top.mean() - bot.mean())
+
+    # (3) DAY-CLUSTERED SIGN-FLIP NULL. Permute the sign of each day's entire net P&L block,
+    # recompute the same lift, and see where the real lift falls in the null's distribution.
+    yd = y_bp[ok]
+    dd = day[ok]
+    rng = np.random.default_rng(seed)
+    null_lift = []
+    uniq_days = pd.unique(dd)
+    for _ in range(n_worlds):
+        sgn = {d: (1 if rng.random() < 0.5 else -1) for d in uniq_days}
+        yp = np.array([sgn[d] * abs(v) for d, v in zip(dd, yd)])
+        null_lift.append(_lift_of(oos[ok], yp, k))
+    null_lift = np.array(null_lift)
     return {
         "usable": True, "n_oos": int(ok.sum()),
         "auc": round(auc, 4),
         "top_decile_net_bp": round(float(top.mean()), 3),
         "bottom_decile_net_bp": round(float(bot.mean()), 3),
-        "lift_bp": round(float(top.mean() - bot.mean()), 3),
+        "lift_bp": round(lift_bp, 3),
         "top_decile_winrate": round(float((top > 0).mean()), 3),
-        "overall_winrate": overall_winrate,
+        "bottom_decile_winrate": round(float((bot > 0).mean()), 3),
+        "overall_net_bp": round(float(yd.mean()), 3),
+        "overall_winrate": round(float((y[ok]).mean()), 4),
+        "payoff_ratio": round(float(abs(top.mean()) / max(abs(yd.mean()), 1e-9)), 3)
+        if yd.mean() != 0 else None,
+        "null_lift_mean": round(float(null_lift.mean()), 3),
+        "null_lift_p95": round(float(np.percentile(null_lift, 95)), 3),
+        "null_lift_p05": round(float(np.percentile(null_lift, 5)), 3),
+        "null_percentile": round(float((np.abs(null_lift) < abs(lift_bp)).mean()), 4),
     }
+
+
+def _lift_of(scores: np.ndarray, y: np.ndarray, k: int) -> float:
+    idx = np.argsort(-scores)
+    return float(y[idx[:k]].mean() - y[idx[-k:]].mean())
 
 
 def main() -> None:
@@ -213,10 +259,10 @@ def main() -> None:
             "trend_5m", "trend_30m", "spread_med_bp", "side", "volume"]
     X = F[cols].apply(pd.to_numeric, errors="coerce")
     # the label: was this trade profitable, net of its own toll
-    y = (F["net_bp"].to_numpy() > 0).astype(int)
     for c in cols:
         X[c] = X[c].fillna(X[c].median())
-    r = walk_forward_lift(X, y)
+    X["_day"] = F["open_day"].to_numpy() if "open_day" in F else np.arange(len(F))
+    r = walk_forward_lift(X, F["net_bp"].to_numpy())
     if not r.get("usable"):
         print("walk-forward not usable:", r)
         return

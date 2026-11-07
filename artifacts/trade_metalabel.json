@@ -1,10 +1,17 @@
 {
  "usable": true,
- "n_oos": 2410,
- "auc": 0.5124,
- "top_decile_net_bp": 0.589,
- "bottom_decile_net_bp": 0.593,
- "lift_bp": -0.004,
- "top_decile_winrate": 0.589,
- "overall_winrate": 0.6714
+ "n_oos": 3012,
+ "auc": 0.507,
+ "top_decile_net_bp": 1.48,
+ "bottom_decile_net_bp": -1.327,
+ "lift_bp": 2.807,
+ "top_decile_winrate": 0.701,
+ "bottom_decile_winrate": 0.674,
+ "overall_net_bp": -0.998,
+ "overall_winrate": 0.6833,
+ "payoff_ratio": 1.482,
+ "null_lift_mean": -0.28,
+ "null_lift_p95": 3.623,
+ "null_lift_p05": -3.98,
+ "null_percentile": 0.68
 }
