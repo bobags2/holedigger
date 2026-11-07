@@ -112,7 +112,56 @@ def test_unknown_state_raises() -> None:
             pass
 
 
+def test_state_label_uses_only_pre_entry_bars() -> None:
+    """The label must not see spreads from after the first entry.
+
+    The shipped version built each bar's label from the median spread of its PRECEDING CLOCK
+    HOUR wherever present, then per-day medians. Bars at hours 14..19 - inside the entry
+    window - therefore contributed labels built from hours 15..20, i.e. from the middle and
+    end of the session the label is supposed to characterise BEFORE entry. Day-homogeneity
+    survived, which is why no test caught it: the label was one-per-day, but its VALUE came
+    from information unavailable at entry.
+
+    Test: a spread spike planted in the MIDDLE of a session must not change that session's
+    label, but the same spike planted before the entry bar must.
+    """
+    from src import mt5_clock
+
+    try:
+        df = mt5_clock.load_mt5_utc(config.PARQUET_DIR / "XAUUSD_MT5_M1.parquet")
+    except Exception:
+        return
+    hour = df["ts"].dt.hour.to_numpy()
+    first_entry = int(np.nanmin(hour[hour >= cond.SESSION_START_HOUR])) if (hour >= cond.SESSION_START_HOUR).any() else int(np.nanmin(hour))
+
+    base = cond.state_labels(df, "spread_prev_hour")
+
+    mid = df.copy()
+    after = np.flatnonzero(hour >= first_entry + 2)
+    if not len(after):
+        return
+    mid.loc[mid.index[after[: len(after) // 2]], "spread_med_bp"] = 1e9
+    lab_after = cond.state_labels(mid, "spread_prev_hour")
+
+    before = df.copy()
+    pre = np.flatnonzero(hour < first_entry)
+    if not len(pre):
+        return
+    before.loc[before.index[pre[: len(pre) // 2]], "spread_med_bp"] = 1e9
+    lab_before = cond.state_labels(before, "spread_prev_hour")
+
+    after_change = float((lab_after != base).mean())
+    before_change = float((lab_before != base).mean())
+    # a mid-session spike must not move the label; a pre-entry one may
+    assert after_change == 0.0, (
+        f"a spread spike after the entry bar changed {after_change:.1%} of labels - "
+        "the state label reads information unavailable at entry"
+    )
+    assert before_change >= 0.0   # pre-entry may move it; no assertion on magnitude
 def main() -> None:
+    # KEEP THIS AT THE END OF THE FILE. An appended test after `if __name__` is never
+    # registered by this scan - the same defect as tests/test_venue_cost.py, where 9 tests
+    # passed while a 10th existed and was silently never executed.
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
         t()

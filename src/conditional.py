@@ -48,6 +48,7 @@ import numpy as np
 import pandas as pd
 
 from . import config, mt5_clock
+from .cross_section import SESSION_START_HOUR
 from .registry import DISCOVERY, Registry
 from .window_sweep import MAX_EXIT_HOUR, HOLDS, _mean_intraday_bar_return
 
@@ -80,19 +81,38 @@ def state_labels(df: pd.DataFrame, state: str) -> np.ndarray:
         raise ValueError(f"unknown state {state!r}; pick from {STATES}")
     sp = df["spread_med_bp"].to_numpy(dtype=float)
     hour = df["ts"].dt.hour.to_numpy()
-    day = df["ts"].dt.normalize().astype("int64")
-    key = day * 24 + hour
-    uniq = np.unique(key)
-    med = pd.Series(sp).groupby(np.searchsorted(uniq, key)).median().to_numpy()
-    prev = np.full(len(sp), np.nan)
-    for i in range(1, len(uniq)):
-        if uniq[i] - uniq[i - 1] == 1:
-            prev[key == uniq[i]] = med[i - 1]
-    prev[key == uniq[0]] = med[0]
-    # one label per DAY: the median of that day's bars' preceding-hour spread states
-    day_state = pd.Series(prev).groupby(day).median()
+    day = df["ts"].dt.normalize().to_numpy().astype("int64")
+
+    # PRE-ENTRY ONLY. The label must describe the tape you entered on, so it may use only
+    # bars BEFORE the earliest bar an entry can be placed on - the first bar of the session
+    # window. The version before this fix built each bar's label from the median spread of its
+    # PRECEDING CLOCK HOUR wherever that hour existed in the panel, then took a per-day
+    # median. On this panel that means bars at hours 14..19 - inside the entry window - each
+    # contributed a label built from hours 15..20, i.e. from the MIDDLE and END of the very
+    # session the label was supposed to characterise before entry. Day-homogeneity survived,
+    # which is why no test caught it: the label was still one-per-day, but its VALUE came from
+    # information that was not available at entry.
+    first_entry_hour = int(np.nanmin(hour[hour >= SESSION_START_HOUR])) if (hour >= SESSION_START_HOUR).any() else int(np.nanmin(hour))
+    pre = hour < first_entry_hour
+    out = np.full(len(sp), np.nan)
+    if pre.any():
+        key_pre = day[pre] * 24 + hour[pre]
+        uniq_pre = np.unique(key_pre)
+        med_pre = pd.Series(sp[pre]).groupby(np.searchsorted(uniq_pre, key_pre)).median().to_numpy()
+        # each pre-entry bar: the median spread of the bars in the preceding clock hour, if
+        # present. `prev_pre` is over the PRE-ENTRY SUBSET; the loop masks with `key_pre`,
+        # which is the same subset, so shapes match.
+        prev_pre = np.full(int(pre.sum()), np.nan)
+        for i in range(1, len(uniq_pre)):
+            if uniq_pre[i] - uniq_pre[i - 1] == 1:
+                prev_pre[key_pre == uniq_pre[i]] = med_pre[i - 1]
+        prev_pre[key_pre == uniq_pre[0]] = med_pre[0]
+        # lift back onto the full bar index; bars at or after the entry bar carry no state
+        out[np.flatnonzero(pre)] = prev_pre
+    # one label per DAY: the day's pre-entry state, carried onto every bar of that day
+    day_state = pd.Series(out).groupby(day).median()
     q = np.nanquantile(day_state.to_numpy(), [1 / 3, 2 / 3])
-    lab = np.full(len(prev), "unknown", dtype=object)
+    lab = np.full(len(sp), "unknown", dtype=object)
     for d, s in day_state.items():
         name = BINS[0] if s <= q[0] else (BINS[1] if s <= q[1] else BINS[2])
         lab[day == d] = name
