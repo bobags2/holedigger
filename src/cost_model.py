@@ -50,48 +50,74 @@ import pandas as pd
 
 from . import mt5_clock
 
-FEATURES = ["hour", "tod_sin", "tod_cos", "log_ticks", "ret_abs",
-            "ret_abs_lag", "range_bp", "spread_lag"]
+FEATURES = ["hour", "tod_sin", "tod_cos", "log_ticks_lag", "ret_abs_lag",
+            "ret_abs_lag2", "range_bp_lag", "spread_lag", "spread_lag2"]
+NOWCAST_FEATURES = ["log_ticks", "ret_abs", "range_bp"]   # same-bar: information leakage
 
 
-def build_features(df: pd.DataFrame) -> pd.DataFrame:
-    """State features available at entry time, from a bar frame with ts/ohlc/spread."""
+def build_features(df: pd.DataFrame, lagged_only: bool = True) -> pd.DataFrame:
+    """State features for predicting THIS bar's spread, without using this bar's own shape.
+
+    ``lagged_only=True`` (the default, and the honest mode) drops anything measurable on the
+    target bar itself: same-bar tick count, same-bar return, same-bar range. Those make the
+    model a **nowcast** — it can only tell you the spread you could already read off the bar
+    you are looking at, which is useless for the ex-ante question "should I trade in this
+    state". With only lags, the features are all known before the bar whose spread is being
+    predicted, so the model is a forecast and the number is decision-relevant.
+
+    ``lagged_only=False`` keeps the same-bar features and is retained only for comparison, so
+    the size of the difference between the two is measured rather than argued.
+    """
     close = df["close"].to_numpy(dtype=float)
     ret = np.zeros(len(df), dtype=float)
     ret[1:] = np.diff(np.log(np.maximum(close, 1e-12)))
     ret_abs = np.abs(ret)
-    rng = (df["high"].to_numpy(float) - df["low"].to_numpy(float)) / np.maximum(close, 1e-12) * 1e4
+    rng = np.zeros(len(df), dtype=float)
+    hi, lo = df["high"].to_numpy(float), df["low"].to_numpy(float)
+    body = len(df)
+    rng[1:] = (hi[1:] - lo[1:]) / np.maximum(close[:-1], 1e-12) * 1e4
     hour = df["ts"].dt.hour.to_numpy() + df["ts"].dt.minute.to_numpy() / 60.0
     ticks = df["tick_n"].to_numpy(dtype=float) if "tick_n" in df else np.ones(len(df))
     spread = df["spread_med_bp"].to_numpy(dtype=float) if "spread_med_bp" in df else np.full(len(df), np.nan)
-    lag = np.full(len(df), np.nan)
-    lag[1:] = ret_abs[:-1]
-    slag = np.full(len(df), np.nan)
-    slag[1:] = spread[:-1]
+
+    def lag(a: np.ndarray, k: int) -> np.ndarray:
+        out = np.full(len(a), np.nan)
+        out[k:] = a[: len(a) - k]
+        return out
+
     out = pd.DataFrame({
         "hour": hour,
         "tod_sin": np.sin(2 * np.pi * hour / 24.0),
         "tod_cos": np.cos(2 * np.pi * hour / 24.0),
-        "log_ticks": np.log1p(ticks),
-        "ret_abs": ret_abs,
-        "ret_abs_lag": lag,
-        "range_bp": rng,
-        "spread_lag": slag,
+        "log_ticks_lag": np.log1p(lag(ticks, 1)),
+        "log_ticks_lag2": np.log1p(lag(ticks, 2)),
+        "ret_abs_lag": lag(ret_abs, 1),
+        "ret_abs_lag2": lag(ret_abs, 2),
+        "range_bp_lag": lag(rng, 1),
+        "spread_lag": lag(spread, 1),
+        "spread_lag2": lag(spread, 2),
     }, index=df.index)
+    if not lagged_only:
+        out["log_ticks"] = np.log1p(ticks)
+        out["ret_abs"] = ret_abs
+        out["range_bp"] = rng
+        return out[FEATURES + NOWCAST_FEATURES]
     return out[FEATURES]
 
 
-@dataclass
+@dataclass(frozen=True)
 class CostModel:
-    """A fitted spread predictor plus the baseline it must beat."""
+    """A fitted spread predictor plus the baselines it must beat."""
 
     symbol: str
     model: object
     train_rows: int
     test_rows: int
-    baseline_test_mae: float
+    baseline_test_mae: float          # flat per-symbol training median
     test_mae: float
     feature_names: list[str]
+    hourly_baseline_mae: float | None = None   # per-(symbol, hour) median: the honest one
+    lagged_only: bool = True                   # True = forecast; False = nowcast
 
     def predict_cost(self, df: pd.DataFrame) -> np.ndarray:
         """Predicted half-spread (bp) per bar of ``df``.
@@ -101,12 +127,12 @@ class CostModel:
         Charging a negative cost would *subsidise* a trade, which is the one direction this
         correction must never fail in.
         """
-        X = build_features(df)
+        X = build_features(df, lagged_only=self.lagged_only)
         pred = np.asarray(self.model.predict(X), dtype=float)
         return np.maximum(pred, 0.0)
 
     def summary(self) -> dict:
-        return {
+        out = {
             "symbol": self.symbol,
             "train_rows": int(self.train_rows),
             "test_rows": int(self.test_rows),
@@ -115,8 +141,17 @@ class CostModel:
             "mae_improvement": round(
                 float(1.0 - self.test_mae / max(self.baseline_test_mae, 1e-12)), 4
             ),
+            "mode": "forecast (lagged-only)" if self.lagged_only else "nowcast (same-bar)",
             "features": self.feature_names,
         }
+        if self.hourly_baseline_mae is not None:
+            # the number that matters: a model that only matches the per-(symbol,hour)
+            # median has learned the clock, which any ``hour`` feature gets for free
+            out["hourly_baseline_mae_bp"] = round(float(self.hourly_baseline_mae), 4)
+            out["mae_improvement_over_hourly"] = round(
+                float(1.0 - self.test_mae / max(self.hourly_baseline_mae, 1e-12)), 4
+            )
+        return out
 
 
 def _make_model():
@@ -150,11 +185,18 @@ def fit_cost_model(
     *,
     test_fraction: float = 0.25,
     parquet=None,
+    lagged_only: bool = True,
 ) -> CostModel:
     """Fit on the first ``1 - test_fraction`` of the panel, test on the held-out tail.
 
     The split is contiguous in time on purpose: a random split would let later bars inform
     earlier ones and the out-of-sample number would be optimistic by construction.
+
+    The baseline is **per-(symbol, hour), not a flat per-symbol median**: spread varies
+    through the session by 2x or more, so charging a symbol-wide median is the error the
+    earlier version made. A model that only matches the hourly baseline has learned the
+    clock, which anything using ``hour`` does for free, so ``CostModel.summary`` reports the
+    improvement over BOTH baselines and the caller decides which one matters.
     """
     from src import config
 
@@ -166,21 +208,25 @@ def fit_cost_model(
     n = len(df)
     cut = int(n * (1.0 - test_fraction))
 
-    feat = build_features(df)
+    feat = build_features(df, lagged_only=lagged_only)
     y = df["spread_med_bp"].to_numpy(dtype=float)
     tr, te = np.arange(0, cut), np.arange(cut, n)
+    hour_te = df["ts"].dt.hour.to_numpy()
 
     model = _make_model()
     model.fit(feat.iloc[tr], y[tr])
 
     pred = np.asarray(model.predict(feat.iloc[te]), dtype=float)
     mae = float(np.mean(np.abs(pred - y[te])))
-    # baseline: the per-symbol training median, charged at every trade - what the sweep
-    # does today (via the adopted spread) and what mt5_audit reports
-    baseline = float(np.median(y[tr]))
-    baseline_mae = float(np.mean(np.abs(np.full(len(te), baseline) - y[te])))
+    # baseline 1: the per-symbol training median (what the sweep charged)
+    flat = float(np.median(y[tr]))
+    flat_mae = float(np.mean(np.abs(np.full(len(te), flat) - y[te])))
+    # baseline 2: per-(symbol, hour) training median - the honest reference
+    hour_med = pd.Series(y[tr]).groupby(hour_te[tr]).median()
+    hourly = hour_med.reindex(hour_te[te]).fillna(hour_med.median()).to_numpy()
+    hourly_mae = float(np.mean(np.abs(hourly - y[te])))
     return CostModel(
         symbol=symbol, model=model, train_rows=len(tr), test_rows=len(te),
-        baseline_test_mae=baseline_mae, test_mae=mae,
-        feature_names=list(FEATURES),
+        baseline_test_mae=flat_mae, hourly_baseline_mae=hourly_mae, test_mae=mae,
+        feature_names=list(feat.columns), lagged_only=lagged_only,
     )
