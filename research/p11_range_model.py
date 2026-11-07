@@ -126,8 +126,22 @@ def run(symbol: str, *, horizon_bars: int = 12, train_frac: float = 0.5) -> dict
         toll = vc.load_cost(symbol).roundtrip_med_bp
     except Exception:
         toll = float("nan")
+    # DEGENERATE-PREDICTION GUARD, corrected after measuring the real failure mode.
+    #
+    # My first guard looked for near-zero predictions (pred's 5th percentile under 5% of the
+    # target's mean) and flagged ZERO rows, while 24 of 143 rows showed QLIKE of 1e3-1e5. The
+    # actual mechanism is the opposite: the model OVER-predicts the upper tail - Apple_MT5's
+    # predicted 99th percentile is 283 bp against a true 171 bp - and QLIKE is unbounded
+    # against p >> y (the y/p - log(y/p) - 1 term). So the guard checks the UPPER tail, and a
+    # row is flagged when the model's p99 exceeds 1.5x the true p99, which is where QLIKE
+    # alone stops being a meaningful comparison.
+    #
+    # Left flagged rather than dropped so the caller can exclude it consistently and the
+    # failure stays visible: a model whose upper tail runs 65% hot is a real defect, and
+    # hiding it behind a clean mean makes the score look better than it is.
+    degenerate = bool(np.percentile(pred, 99) > 1.5 * np.percentile(yte, 99))
     return {
-        "symbol": symbol,
+        "symbol": symbol, "qlike_degenerate": degenerate,
         "n_train": int(len(ytr)), "n_test": int(len(yte)),
         "y_mean_bp": round(float(yte.mean()), 3),
         "pred_mean_bp": round(float(pred.mean()), 3),

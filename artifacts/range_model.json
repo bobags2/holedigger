@@ -1,6 +1,7 @@
 [
  {
   "symbol": "3M_MT5",
+  "qlike_degenerate": false,
   "n_train": 26678,
   "n_test": 26718,
   "y_mean_bp": 30.717,
@@ -14,6 +15,7 @@
  },
  {
   "symbol": "Accenture_MT5",
+  "qlike_degenerate": false,
   "n_train": 26890,
   "n_test": 27049,
   "y_mean_bp": 55.024,
@@ -27,6 +29,7 @@
  },
  {
   "symbol": "Adobe_MT5",
+  "qlike_degenerate": false,
   "n_train": 26958,
   "n_test": 27085,
   "y_mean_bp": 47.692,
@@ -40,6 +43,7 @@
  },
  {
   "symbol": "ADP_MT5",
+  "qlike_degenerate": false,
   "n_train": 26618,
   "n_test": 26750,
   "y_mean_bp": 31.628,
@@ -53,6 +57,7 @@
  },
  {
   "symbol": "Airbnb_MT5",
+  "qlike_degenerate": false,
   "n_train": 26687,
   "n_test": 26967,
   "y_mean_bp": 40.321,
@@ -66,6 +71,7 @@
  },
  {
   "symbol": "AlibabaGroup_MT5",
+  "qlike_degenerate": false,
   "n_train": 26947,
   "n_test": 27089,
   "y_mean_bp": 35.436,
@@ -79,6 +85,7 @@
  },
  {
   "symbol": "Alphabet-A_MT5",
+  "qlike_degenerate": false,
   "n_train": 9987,
   "n_test": 10119,
   "y_mean_bp": 36.94,
@@ -92,6 +99,7 @@
  },
  {
   "symbol": "Alphabet-C_MT5",
+  "qlike_degenerate": false,
   "n_train": 8648,
   "n_test": 8779,
   "y_mean_bp": 37.998,
@@ -105,6 +113,7 @@
  },
  {
   "symbol": "Amazon_MT5",
+  "qlike_degenerate": false,
   "n_train": 26961,
   "n_test": 27093,
   "y_mean_bp": 35.807,
@@ -118,6 +127,7 @@
  },
  {
   "symbol": "AMD_MT5",
+  "qlike_degenerate": false,
   "n_train": 26962,
   "n_test": 27093,
   "y_mean_bp": 63.65,
@@ -131,6 +141,7 @@
  },
  {
   "symbol": "AmericanExpress_MT5",
+  "qlike_degenerate": false,
   "n_train": 26861,
   "n_test": 27038,
   "y_mean_bp": 26.896,
@@ -144,6 +155,7 @@
  },
  {
   "symbol": "Amgen_MT5",
+  "qlike_degenerate": false,
   "n_train": 26680,
   "n_test": 27020,
   "y_mean_bp": 34.84,
@@ -157,6 +169,7 @@
  },
  {
   "symbol": "Apple_MT5",
+  "qlike_degenerate": true,
   "n_train": 12177,
   "n_test": 12312,
   "y_mean_bp": 30.963,
@@ -170,6 +183,7 @@
  },
  {
   "symbol": "AppliedMaterials_MT5",
+  "qlike_degenerate": false,
   "n_train": 26960,
   "n_test": 27092,
   "y_mean_bp": 62.097,
@@ -183,6 +197,7 @@
  },
  {
   "symbol": "AT&T_MT5",
+  "qlike_degenerate": false,
   "n_train": 21498,
   "n_test": 20458,
   "y_mean_bp": 36.234,
@@ -196,6 +211,7 @@
  },
  {
   "symbol": "Atlassian_MT5",
+  "qlike_degenerate": false,
   "n_train": 26850,
   "n_test": 26854,
   "y_mean_bp": 70.16,
@@ -209,6 +225,7 @@
  },
  {
   "symbol": "Baidu_MT5",
+  "qlike_degenerate": false,
   "n_train": 25877,
   "n_test": 26238,
   "y_mean_bp": 37.699,
@@ -222,6 +239,7 @@
  },
  {
   "symbol": "BankofAmericaCorp_MT5",
+  "qlike_degenerate": false,
   "n_train": 26352,
   "n_test": 26470,
   "y_mean_bp": 28.345,
@@ -235,6 +253,7 @@
  },
  {
   "symbol": "Berkshire_MT5",
+  "qlike_degenerate": false,
   "n_train": 26926,
   "n_test": 27068,
   "y_mean_bp": 18.308,
@@ -248,6 +267,7 @@
  },
  {
   "symbol": "BlackRock_MT5",
+  "qlike_degenerate": false,
   "n_train": 25118,
   "n_test": 25953,
   "y_mean_bp": 32.579,
@@ -261,6 +281,7 @@
  },
  {
   "symbol": "Boeing_MT5",
+  "qlike_degenerate": false,
   "n_train": 26918,
   "n_test": 27068,
   "y_mean_bp": 37.34,
@@ -274,6 +295,7 @@
  },
  {
   "symbol": "Booking_MT5",
+  "qlike_degenerate": false,
   "n_train": 26960,
   "n_test": 27093,
   "y_mean_bp": 45.87,
@@ -287,6 +309,7 @@
  },
  {
   "symbol": "Broadcom_MT5",
+  "qlike_degenerate": false,
   "n_train": 26961,
   "n_test": 27093,
   "y_mean_bp": 44.578,
@@ -300,6 +323,7 @@
  },
  {
   "symbol": "Caterpillar_MT5",
+  "qlike_degenerate": false,
   "n_train": 26930,
   "n_test": 27062,
   "y_mean_bp": 44.743,
@@ -313,6 +337,7 @@
  },
  {
   "symbol": "CharlesSchwab_MT5",
+  "qlike_degenerate": false,
   "n_train": 26954,
   "n_test": 27065,
   "y_mean_bp": 30.224,
@@ -326,6 +351,7 @@
  },
  {
   "symbol": "Charter_MT5",
+  "qlike_degenerate": false,
   "n_train": 26517,
   "n_test": 26566,
   "y_mean_bp": 64.612,
@@ -339,6 +365,7 @@
  },
  {
   "symbol": "Chevron_MT5",
+  "qlike_degenerate": false,
   "n_train": 26960,
   "n_test": 27093,
   "y_mean_bp": 29.018,
@@ -352,6 +379,7 @@
  },
  {
   "symbol": "Cisco_MT5",
+  "qlike_degenerate": false,
   "n_train": 26959,
   "n_test": 27093,
   "y_mean_bp": 36.226,
@@ -365,6 +393,7 @@
  },
  {
   "symbol": "Citigroup_MT5",
+  "qlike_degenerate": false,
   "n_train": 26961,
   "n_test": 27090,
   "y_mean_bp": 34.678,
@@ -378,6 +407,7 @@
  },
  {
   "symbol": "Coca-Cola_MT5",
+  "qlike_degenerate": false,
   "n_train": 26889,
   "n_test": 27013,
   "y_mean_bp": 22.547,
@@ -391,6 +421,7 @@
  },
  {
   "symbol": "COFARA",
+  "qlike_degenerate": false,
   "n_train": 322301,
   "n_test": 335344,
   "y_mean_bp": 46.471,
@@ -404,6 +435,7 @@
  },
  {
   "symbol": "COFROB",
+  "qlike_degenerate": false,
   "n_train": 245920,
   "n_test": 288027,
   "y_mean_bp": 46.798,
@@ -417,6 +449,7 @@
  },
  {
   "symbol": "Coinbase_MT5",
+  "qlike_degenerate": false,
   "n_train": 26960,
   "n_test": 27090,
   "y_mean_bp": 79.979,
@@ -430,6 +463,7 @@
  },
  {
   "symbol": "Comcast_MT5",
+  "qlike_degenerate": false,
   "n_train": 23645,
   "n_test": 22608,
   "y_mean_bp": 40.747,
@@ -443,6 +477,7 @@
  },
  {
   "symbol": "CORN",
+  "qlike_degenerate": false,
   "n_train": 25481,
   "n_test": 28758,
   "y_mean_bp": 28.008,
@@ -456,6 +491,7 @@
  },
  {
   "symbol": "CostcoWholesale_MT5",
+  "qlike_degenerate": false,
   "n_train": 26823,
   "n_test": 27051,
   "y_mean_bp": 23.59,
@@ -469,6 +505,7 @@
  },
  {
   "symbol": "COTTON",
+  "qlike_degenerate": false,
   "n_train": 471525,
   "n_test": 456826,
   "y_mean_bp": 19.842,
@@ -482,6 +519,7 @@
  },
  {
   "symbol": "CVSHealth_MT5",
+  "qlike_degenerate": false,
   "n_train": 26921,
   "n_test": 27052,
   "y_mean_bp": 36.381,
@@ -495,6 +533,7 @@
  },
  {
   "symbol": "DocuSign_MT5",
+  "qlike_degenerate": false,
   "n_train": 26926,
   "n_test": 26911,
   "y_mean_bp": 56.175,
@@ -508,6 +547,7 @@
  },
  {
   "symbol": "Doordash_MT5",
+  "qlike_degenerate": false,
   "n_train": 26723,
   "n_test": 26928,
   "y_mean_bp": 57.888,
@@ -521,6 +561,7 @@
  },
  {
   "symbol": "Dow_MT5",
+  "qlike_degenerate": true,
   "n_train": 26583,
   "n_test": 25802,
   "y_mean_bp": 45.823,
@@ -534,6 +575,7 @@
  },
  {
   "symbol": "eBay_MT5",
+  "qlike_degenerate": false,
   "n_train": 26522,
   "n_test": 26866,
   "y_mean_bp": 45.963,
@@ -547,6 +589,7 @@
  },
  {
   "symbol": "ElectronicArts_MT5",
+  "qlike_degenerate": false,
   "n_train": 12690,
   "n_test": 12282,
   "y_mean_bp": 6.609,
@@ -560,6 +603,7 @@
  },
  {
   "symbol": "EURUSD",
+  "qlike_degenerate": false,
   "n_train": 1043127,
   "n_test": 1052772,
   "y_mean_bp": 4.997,
@@ -573,6 +617,7 @@
  },
  {
   "symbol": "EURUSD_MT5",
+  "qlike_degenerate": false,
   "n_train": 175656,
   "n_test": 175571,
   "y_mean_bp": 3.879,
@@ -586,6 +631,7 @@
  },
  {
   "symbol": "ExxonMobil_MT5",
+  "qlike_degenerate": false,
   "n_train": 26962,
   "n_test": 27093,
   "y_mean_bp": 32.27,
@@ -599,6 +645,7 @@
  },
  {
   "symbol": "Ford_MT5",
+  "qlike_degenerate": false,
   "n_train": 18195,
   "n_test": 15032,
   "y_mean_bp": 42.545,
@@ -612,6 +659,7 @@
  },
  {
   "symbol": "GBPUSD",
+  "qlike_degenerate": false,
   "n_train": 1052345,
   "n_test": 1063268,
   "y_mean_bp": 5.282,
@@ -625,6 +673,7 @@
  },
  {
   "symbol": "GeneralElectric_MT5",
+  "qlike_degenerate": false,
   "n_train": 26938,
   "n_test": 27065,
   "y_mean_bp": 37.644,
@@ -638,6 +687,7 @@
  },
  {
   "symbol": "GeneralMotors_MT5",
+  "qlike_degenerate": false,
   "n_train": 26921,
   "n_test": 27036,
   "y_mean_bp": 38.728,
@@ -651,6 +701,7 @@
  },
  {
   "symbol": "GileadSciences_MT5",
+  "qlike_degenerate": false,
   "n_train": 26925,
   "n_test": 27045,
   "y_mean_bp": 37.282,
@@ -664,6 +715,7 @@
  },
  {
   "symbol": "GoldmanSachs_MT5",
+  "qlike_degenerate": false,
   "n_train": 26936,
   "n_test": 27050,
   "y_mean_bp": 36.994,
@@ -677,6 +729,7 @@
  },
  {
   "symbol": "HomeDepot_MT5",
+  "qlike_degenerate": false,
   "n_train": 26938,
   "n_test": 27075,
   "y_mean_bp": 30.927,
@@ -690,6 +743,7 @@
  },
  {
   "symbol": "Honeywell_MT5",
+  "qlike_degenerate": false,
   "n_train": 26748,
   "n_test": 26803,
   "y_mean_bp": 32.956,
@@ -703,6 +757,7 @@
  },
  {
   "symbol": "IBM_MT5",
+  "qlike_degenerate": true,
   "n_train": 26956,
   "n_test": 27077,
   "y_mean_bp": 39.054,
@@ -716,6 +771,7 @@
  },
  {
   "symbol": "Intel_MT5",
+  "qlike_degenerate": false,
   "n_train": 26962,
   "n_test": 27093,
   "y_mean_bp": 76.498,
@@ -729,6 +785,7 @@
  },
  {
   "symbol": "Intuit_MT5",
+  "qlike_degenerate": false,
   "n_train": 26920,
   "n_test": 27035,
   "y_mean_bp": 54.036,
@@ -742,6 +799,7 @@
  },
  {
   "symbol": "IntuitiveSurgical_MT5",
+  "qlike_degenerate": false,
   "n_train": 26810,
   "n_test": 26992,
   "y_mean_bp": 39.123,
@@ -755,6 +813,7 @@
  },
  {
   "symbol": "Johnson&Johnson_MT5",
+  "qlike_degenerate": false,
   "n_train": 26949,
   "n_test": 27059,
   "y_mean_bp": 29.195,
@@ -768,6 +827,7 @@
  },
  {
   "symbol": "JPMorganChase_MT5",
+  "qlike_degenerate": false,
   "n_train": 26961,
   "n_test": 27092,
   "y_mean_bp": 27.031,
@@ -781,6 +841,7 @@
  },
  {
   "symbol": "LucidGroup_MT5",
+  "qlike_degenerate": false,
   "n_train": 17856,
   "n_test": 12159,
   "y_mean_bp": 111.144,
@@ -794,6 +855,7 @@
  },
  {
   "symbol": "Lyft_MT5",
+  "qlike_degenerate": false,
   "n_train": 22709,
   "n_test": 22532,
   "y_mean_bp": 56.261,
@@ -807,6 +869,7 @@
  },
  {
   "symbol": "Mastercard_MT5",
+  "qlike_degenerate": false,
   "n_train": 26917,
   "n_test": 27043,
   "y_mean_bp": 25.941,
@@ -820,6 +883,7 @@
  },
  {
   "symbol": "McDonalds_MT5",
+  "qlike_degenerate": false,
   "n_train": 26954,
   "n_test": 27091,
   "y_mean_bp": 26.191,
@@ -833,6 +897,7 @@
  },
  {
   "symbol": "Medtronic_MT5",
+  "qlike_degenerate": false,
   "n_train": 26927,
   "n_test": 27078,
   "y_mean_bp": 33.248,
@@ -846,6 +911,7 @@
  },
  {
   "symbol": "Merck_MT5",
+  "qlike_degenerate": false,
   "n_train": 26948,
   "n_test": 27086,
   "y_mean_bp": 37.665,
@@ -859,6 +925,7 @@
  },
  {
   "symbol": "Meta_MT5",
+  "qlike_degenerate": false,
   "n_train": 26960,
   "n_test": 27093,
   "y_mean_bp": 47.171,
@@ -872,6 +939,7 @@
  },
  {
   "symbol": "MicronTechnology_MT5",
+  "qlike_degenerate": false,
   "n_train": 26962,
   "n_test": 27093,
   "y_mean_bp": 70.928,
@@ -885,6 +953,7 @@
  },
  {
   "symbol": "Microsoft_MT5",
+  "qlike_degenerate": false,
   "n_train": 26961,
   "n_test": 27093,
   "y_mean_bp": 33.47,
@@ -898,6 +967,7 @@
  },
  {
   "symbol": "MorganStanley_MT5",
+  "qlike_degenerate": false,
   "n_train": 26552,
   "n_test": 26684,
   "y_mean_bp": 35.35,
@@ -911,6 +981,7 @@
  },
  {
   "symbol": "NAS100",
+  "qlike_degenerate": false,
   "n_train": 1039116,
   "n_test": 1039392,
   "y_mean_bp": 13.489,
@@ -924,6 +995,7 @@
  },
  {
   "symbol": "NAS100_MT5",
+  "qlike_degenerate": false,
   "n_train": 29384,
   "n_test": 29516,
   "y_mean_bp": 16.206,
@@ -937,6 +1009,7 @@
  },
  {
   "symbol": "Netflix_MT5",
+  "qlike_degenerate": false,
   "n_train": 26956,
   "n_test": 27054,
   "y_mean_bp": 36.278,
@@ -950,6 +1023,7 @@
  },
  {
   "symbol": "Nike_MT5",
+  "qlike_degenerate": false,
   "n_train": 26617,
   "n_test": 26019,
   "y_mean_bp": 39.581,
@@ -963,6 +1037,7 @@
  },
  {
   "symbol": "NIO_MT5",
+  "qlike_degenerate": false,
   "n_train": 7225,
   "n_test": 2795,
   "y_mean_bp": 62.547,
@@ -976,6 +1051,7 @@
  },
  {
   "symbol": "NVIDIA_MT5",
+  "qlike_degenerate": false,
   "n_train": 26962,
   "n_test": 27093,
   "y_mean_bp": 39.463,
@@ -989,6 +1065,7 @@
  },
  {
   "symbol": "OJ",
+  "qlike_degenerate": false,
   "n_train": 85590,
   "n_test": 113322,
   "y_mean_bp": 92.903,
@@ -1002,6 +1079,7 @@
  },
  {
   "symbol": "Oracle_MT5",
+  "qlike_degenerate": false,
   "n_train": 26962,
   "n_test": 27093,
   "y_mean_bp": 64.731,
@@ -1015,6 +1093,7 @@
  },
  {
   "symbol": "Palantir_MT5",
+  "qlike_degenerate": false,
   "n_train": 19747,
   "n_test": 19878,
   "y_mean_bp": 56.77,
@@ -1028,6 +1107,7 @@
  },
  {
   "symbol": "PayPal_MT5",
+  "qlike_degenerate": false,
   "n_train": 26775,
   "n_test": 26920,
   "y_mean_bp": 36.114,
@@ -1041,6 +1121,7 @@
  },
  {
   "symbol": "Pepsi_MT5",
+  "qlike_degenerate": false,
   "n_train": 26943,
   "n_test": 27088,
   "y_mean_bp": 26.676,
@@ -1054,6 +1135,7 @@
  },
  {
   "symbol": "Pfizer_MT5",
+  "qlike_degenerate": false,
   "n_train": 20272,
   "n_test": 20809,
   "y_mean_bp": 30.365,
@@ -1067,6 +1149,7 @@
  },
  {
   "symbol": "PhilipMorrisInternational_MT5",
+  "qlike_degenerate": false,
   "n_train": 26636,
   "n_test": 26819,
   "y_mean_bp": 34.516,
@@ -1080,6 +1163,7 @@
  },
  {
   "symbol": "Pinterest_MT5",
+  "qlike_degenerate": false,
   "n_train": 25688,
   "n_test": 24799,
   "y_mean_bp": 58.066,
@@ -1093,6 +1177,7 @@
  },
  {
   "symbol": "Procter&Gamble_MT5",
+  "qlike_degenerate": false,
   "n_train": 26961,
   "n_test": 27093,
   "y_mean_bp": 24.381,
@@ -1106,6 +1191,7 @@
  },
  {
   "symbol": "Qualcomm_MT5",
+  "qlike_degenerate": true,
   "n_train": 26962,
   "n_test": 27091,
   "y_mean_bp": 58.948,
@@ -1119,6 +1205,7 @@
  },
  {
   "symbol": "RobinhoodMarkets_MT5",
+  "qlike_degenerate": false,
   "n_train": 26962,
   "n_test": 27093,
   "y_mean_bp": 74.427,
@@ -1132,6 +1219,7 @@
  },
  {
   "symbol": "Roku_MT5",
+  "qlike_degenerate": false,
   "n_train": 26379,
   "n_test": 26583,
   "y_mean_bp": 20.331,
@@ -1145,6 +1233,7 @@
  },
  {
   "symbol": "S&PGlobal_MT5",
+  "qlike_degenerate": false,
   "n_train": 26577,
   "n_test": 26902,
   "y_mean_bp": 33.294,
@@ -1158,6 +1247,7 @@
  },
  {
   "symbol": "Salesforce_MT5",
+  "qlike_degenerate": false,
   "n_train": 26957,
   "n_test": 27080,
   "y_mean_bp": 49.202,
@@ -1171,6 +1261,7 @@
  },
  {
   "symbol": "ServiceNow_MT5",
+  "qlike_degenerate": false,
   "n_train": 26960,
   "n_test": 27093,
   "y_mean_bp": 61.041,
@@ -1184,6 +1275,7 @@
  },
  {
   "symbol": "Shopify_MT5",
+  "qlike_degenerate": false,
   "n_train": 26954,
   "n_test": 27080,
   "y_mean_bp": 63.38,
@@ -1197,6 +1289,7 @@
  },
  {
   "symbol": "Snapchat_MT5",
+  "qlike_degenerate": false,
   "n_train": 12662,
   "n_test": 12458,
   "y_mean_bp": 82.546,
@@ -1210,6 +1303,7 @@
  },
  {
   "symbol": "Snowflake_MT5",
+  "qlike_degenerate": false,
   "n_train": 26902,
   "n_test": 26975,
   "y_mean_bp": 62.49,
@@ -1223,6 +1317,7 @@
  },
  {
   "symbol": "SOYBEAN",
+  "qlike_degenerate": false,
   "n_train": 522261,
   "n_test": 469921,
   "y_mean_bp": 17.23,
@@ -1236,6 +1331,7 @@
  },
  {
   "symbol": "SpaceX_MT5",
+  "qlike_degenerate": false,
   "n_train": 19423,
   "n_test": 19557,
   "y_mean_bp": 64.015,
@@ -1249,6 +1345,7 @@
  },
  {
   "symbol": "Spotify_MT5",
+  "qlike_degenerate": false,
   "n_train": 26533,
   "n_test": 26750,
   "y_mean_bp": 51.938,
@@ -1262,6 +1359,7 @@
  },
  {
   "symbol": "Starbucks_MT5",
+  "qlike_degenerate": false,
   "n_train": 26947,
   "n_test": 27048,
   "y_mean_bp": 37.945,
@@ -1275,6 +1373,7 @@
  },
  {
   "symbol": "SUGAR",
+  "qlike_degenerate": false,
   "n_train": 296703,
   "n_test": 302974,
   "y_mean_bp": 28.776,
@@ -1288,6 +1387,7 @@
  },
  {
   "symbol": "SUGARRAW",
+  "qlike_degenerate": false,
   "n_train": 206369,
   "n_test": 223205,
   "y_mean_bp": 40.037,
@@ -1301,6 +1401,7 @@
  },
  {
   "symbol": "Target_MT5",
+  "qlike_degenerate": false,
   "n_train": 26823,
   "n_test": 26901,
   "y_mean_bp": 36.677,
@@ -1314,6 +1415,7 @@
  },
  {
   "symbol": "Tesla_MT5",
+  "qlike_degenerate": true,
   "n_train": 14061,
   "n_test": 14193,
   "y_mean_bp": 48.581,
@@ -1327,6 +1429,7 @@
  },
  {
   "symbol": "TexasInstruments_MT5",
+  "qlike_degenerate": false,
   "n_train": 26949,
   "n_test": 27063,
   "y_mean_bp": 48.367,
@@ -1340,6 +1443,7 @@
  },
  {
   "symbol": "ThermoFisherScientific_MT5",
+  "qlike_degenerate": false,
   "n_train": 26564,
   "n_test": 26614,
   "y_mean_bp": 37.796,
@@ -1353,6 +1457,7 @@
  },
  {
   "symbol": "TMEGroup_MT5",
+  "qlike_degenerate": false,
   "n_train": 10602,
   "n_test": 7500,
   "y_mean_bp": 52.447,
@@ -1366,6 +1471,7 @@
  },
  {
   "symbol": "Toyota_MT5",
+  "qlike_degenerate": false,
   "n_train": 22088,
   "n_test": 22270,
   "y_mean_bp": 20.972,
@@ -1379,6 +1485,7 @@
  },
  {
   "symbol": "Travelers_MT5",
+  "qlike_degenerate": false,
   "n_train": 26358,
   "n_test": 26673,
   "y_mean_bp": 27.167,
@@ -1392,6 +1499,7 @@
  },
  {
   "symbol": "TSMC_MT5",
+  "qlike_degenerate": false,
   "n_train": 26962,
   "n_test": 27093,
   "y_mean_bp": 37.442,
@@ -1405,6 +1513,7 @@
  },
  {
   "symbol": "Twilio_MT5",
+  "qlike_degenerate": false,
   "n_train": 26125,
   "n_test": 26604,
   "y_mean_bp": 73.436,
@@ -1418,6 +1527,7 @@
  },
  {
   "symbol": "Uber_MT5",
+  "qlike_degenerate": false,
   "n_train": 26956,
   "n_test": 27078,
   "y_mean_bp": 40.737,
@@ -1431,6 +1541,7 @@
  },
  {
   "symbol": "UKCOCOA",
+  "qlike_degenerate": false,
   "n_train": 202598,
   "n_test": 239761,
   "y_mean_bp": 69.447,
@@ -1444,6 +1555,7 @@
  },
  {
   "symbol": "UnionPacific_MT5",
+  "qlike_degenerate": false,
   "n_train": 26355,
   "n_test": 26637,
   "y_mean_bp": 28.243,
@@ -1457,6 +1569,7 @@
  },
  {
   "symbol": "UnitedHealth_MT5",
+  "qlike_degenerate": false,
   "n_train": 26956,
   "n_test": 27075,
   "y_mean_bp": 34.942,
@@ -1470,6 +1583,7 @@
  },
  {
   "symbol": "UnitedParcelService_MT5",
+  "qlike_degenerate": false,
   "n_train": 26924,
   "n_test": 27002,
   "y_mean_bp": 29.591,
@@ -1483,6 +1597,7 @@
  },
  {
   "symbol": "US500",
+  "qlike_degenerate": false,
   "n_train": 1005747,
   "n_test": 1003449,
   "y_mean_bp": 9.964,
@@ -1496,6 +1611,7 @@
  },
  {
   "symbol": "USCOCOA",
+  "qlike_degenerate": false,
   "n_train": 270235,
   "n_test": 315538,
   "y_mean_bp": 74.329,
@@ -1509,6 +1625,7 @@
  },
  {
   "symbol": "USDX",
+  "qlike_degenerate": false,
   "n_train": 764402,
   "n_test": 774731,
   "y_mean_bp": 4.96,
@@ -1522,6 +1639,7 @@
  },
  {
   "symbol": "Verizon_MT5",
+  "qlike_degenerate": false,
   "n_train": 25985,
   "n_test": 25793,
   "y_mean_bp": 32.523,
@@ -1535,6 +1653,7 @@
  },
  {
   "symbol": "Visa_MT5",
+  "qlike_degenerate": true,
   "n_train": 26960,
   "n_test": 27088,
   "y_mean_bp": 24.738,
@@ -1548,6 +1667,7 @@
  },
  {
   "symbol": "Walmart_MT5",
+  "qlike_degenerate": false,
   "n_train": 26962,
   "n_test": 27084,
   "y_mean_bp": 27.872,
@@ -1561,6 +1681,7 @@
  },
  {
   "symbol": "WaltDisney_MT5",
+  "qlike_degenerate": false,
   "n_train": 26948,
   "n_test": 27075,
   "y_mean_bp": 28.334,
@@ -1574,6 +1695,7 @@
  },
  {
   "symbol": "WellsFargo_MT5",
+  "qlike_degenerate": false,
   "n_train": 26917,
   "n_test": 27077,
   "y_mean_bp": 31.786,
@@ -1587,6 +1709,7 @@
  },
  {
   "symbol": "WHEAT",
+  "qlike_degenerate": false,
   "n_train": 58384,
   "n_test": 65467,
   "y_mean_bp": 31.601,
@@ -1600,6 +1723,7 @@
  },
  {
   "symbol": "XAGUSD",
+  "qlike_degenerate": false,
   "n_train": 1021599,
   "n_test": 1032156,
   "y_mean_bp": 29.696,
@@ -1613,6 +1737,7 @@
  },
  {
   "symbol": "XAGUSD_MT5",
+  "qlike_degenerate": false,
   "n_train": 169181,
   "n_test": 169398,
   "y_mean_bp": 34.496,
@@ -1626,6 +1751,7 @@
  },
  {
   "symbol": "XALUSD",
+  "qlike_degenerate": false,
   "n_train": 656299,
   "n_test": 665528,
   "y_mean_bp": 18.113,
@@ -1639,6 +1765,7 @@
  },
  {
   "symbol": "XALUSD_MT5",
+  "qlike_degenerate": false,
   "n_train": 116666,
   "n_test": 123915,
   "y_mean_bp": 17.015,
@@ -1652,6 +1779,7 @@
  },
  {
   "symbol": "XAUUSD",
+  "qlike_degenerate": false,
   "n_train": 1040371,
   "n_test": 1041128,
   "y_mean_bp": 14.794,
@@ -1665,6 +1793,7 @@
  },
  {
   "symbol": "XAUUSD_MT5",
+  "qlike_degenerate": false,
   "n_train": 169295,
   "n_test": 169430,
   "y_mean_bp": 17.713,
@@ -1678,6 +1807,7 @@
  },
  {
   "symbol": "XBRUSD",
+  "qlike_degenerate": false,
   "n_train": 770972,
   "n_test": 755092,
   "y_mean_bp": 28.126,
@@ -1691,6 +1821,7 @@
  },
  {
   "symbol": "XCUUSD",
+  "qlike_degenerate": false,
   "n_train": 788053,
   "n_test": 788456,
   "y_mean_bp": 16.738,
@@ -1704,6 +1835,7 @@
  },
  {
   "symbol": "XCUUSD_MT5",
+  "qlike_degenerate": false,
   "n_train": 126934,
   "n_test": 127580,
   "y_mean_bp": 14.57,
@@ -1717,6 +1849,7 @@
  },
  {
   "symbol": "XNGUSD",
+  "qlike_degenerate": false,
   "n_train": 675339,
   "n_test": 648429,
   "y_mean_bp": 47.734,
@@ -1730,6 +1863,7 @@
  },
  {
   "symbol": "XNGUSD_MT5",
+  "qlike_degenerate": false,
   "n_train": 155051,
   "n_test": 140869,
   "y_mean_bp": 33.7,
@@ -1743,6 +1877,7 @@
  },
  {
   "symbol": "XNIUSD",
+  "qlike_degenerate": false,
   "n_train": 99115,
   "n_test": 106748,
   "y_mean_bp": 20.997,
@@ -1756,6 +1891,7 @@
  },
  {
   "symbol": "XPBUSD",
+  "qlike_degenerate": false,
   "n_train": 493937,
   "n_test": 478570,
   "y_mean_bp": 16.624,
@@ -1769,6 +1905,7 @@
  },
  {
   "symbol": "XPBUSD_MT5",
+  "qlike_degenerate": false,
   "n_train": 79731,
   "n_test": 103310,
   "y_mean_bp": 11.809,
@@ -1782,6 +1919,7 @@
  },
  {
   "symbol": "XPDUSD",
+  "qlike_degenerate": false,
   "n_train": 933667,
   "n_test": 949999,
   "y_mean_bp": 40.489,
@@ -1795,6 +1933,7 @@
  },
  {
   "symbol": "XPTUSD",
+  "qlike_degenerate": false,
   "n_train": 760521,
   "n_test": 768128,
   "y_mean_bp": 34.196,
@@ -1808,6 +1947,7 @@
  },
  {
   "symbol": "XPTUSD_MT5",
+  "qlike_degenerate": false,
   "n_train": 168447,
   "n_test": 168651,
   "y_mean_bp": 30.997,
@@ -1821,6 +1961,7 @@
  },
  {
   "symbol": "XTIUSD",
+  "qlike_degenerate": false,
   "n_train": 830520,
   "n_test": 808576,
   "y_mean_bp": 30.066,
@@ -1834,6 +1975,7 @@
  },
  {
   "symbol": "XTIUSD_MT5",
+  "qlike_degenerate": false,
   "n_train": 164948,
   "n_test": 168527,
   "y_mean_bp": 36.998,
@@ -1847,6 +1989,7 @@
  },
  {
   "symbol": "XZNUSD",
+  "qlike_degenerate": false,
   "n_train": 654289,
   "n_test": 685018,
   "y_mean_bp": 21.116,
