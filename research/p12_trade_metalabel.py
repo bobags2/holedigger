@@ -109,7 +109,13 @@ def entry_features(trades: pd.DataFrame, lookback_bars: int = 60) -> pd.DataFram
                 "symbol": sym,
                 "minute": t.open_time.hour * 60 + t.open_time.minute,
                 "dow": float(t.open_time.dayofweek),
-                "hold_s": t.hold_s,
+                # "hold_s" is NOT an entry-time feature and must never be in `cols`: it is
+                # close_time - open_time, so it is knowable only after the trade is over. It is
+                # a real leak with a real gradient - measured win rate falls 85.0% (<=10s) to
+                # 52.6% (>276s), a monotone adverse-selection curve that no entry-time feature
+                # can reproduce. The raw point-biserial correlation is only -0.045, which is
+                # why the leak looks harmless until a tree model finds the non-linear part.
+                "hold_s_LEAKED": t.hold_s,
                 "vol_5m": float(np.std(ret[w], ddof=1)) * 1e4,
                 "atr_rel": float(atr[i]) / max(float(cl[i]), 1e-9) * 1e4 if np.isfinite(atr[i]) else np.nan,
                 "dist_hi_bp": float((cl[i] - prev_hi) / max(cl[i], 1e-9) * 1e4) if len(r_cl) else np.nan,
@@ -201,7 +207,9 @@ def main() -> None:
     print(f"  matched to panels with entry-time features: {len(F):,} trades")
     F.to_parquet(config.ARTIFACTS_DIR / "trade_features.parquet", index=False)
 
-    cols = ["minute", "dow", "hold_s", "vol_5m", "atr_rel", "dist_hi_bp", "dist_lo_bp",
+    # ENTRY-TIME FEATURES ONLY. Every column here must be computable at the moment the order
+    # goes out. `hold_s_LEAKED` exists in the parquet for diagnosis and is deliberately absent.
+    cols = ["minute", "dow", "vol_5m", "atr_rel", "dist_hi_bp", "dist_lo_bp",
             "trend_5m", "trend_30m", "spread_med_bp", "side", "volume"]
     X = F[cols].apply(pd.to_numeric, errors="coerce")
     # the label: was this trade profitable, net of its own toll
@@ -217,7 +225,8 @@ def main() -> None:
     print(f"  AUC               : {r['auc']:.3f}")
     print(f"  top decile, NET   : {r['top_decile_net_bp']:+.3f} bp  (win {r['top_decile_winrate']:.0%})")
     print(f"  bottom decile, NET: {r['bottom_decile_net_bp']:+.3f} bp")
-    print(f"  LIFT              : {r['lift_bp']:+.3f} bp   (overall OOS {r['overall_net_bp']:+.3f} bp)")
+    print(f"  LIFT              : {r['lift_bp']:+.3f} bp   (OOS win rate "
+          f"{r['overall_winrate']:.1%})")
     json.dump(r, open(config.ARTIFACTS_DIR / "trade_metalabel.json", "w"), indent=1)
     print("\n  wrote artifacts/trade_metalabel.json")
 

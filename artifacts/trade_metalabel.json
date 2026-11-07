@@ -1,10 +1,10 @@
 {
  "usable": true,
  "n_oos": 2410,
- "auc": 0.6201,
- "top_decile_net_bp": 0.776,
- "bottom_decile_net_bp": 0.456,
- "lift_bp": 0.32,
- "top_decile_winrate": 0.776,
- "overall_net_bp": 0.671
+ "auc": 0.5124,
+ "top_decile_net_bp": 0.589,
+ "bottom_decile_net_bp": 0.593,
+ "lift_bp": -0.004,
+ "top_decile_winrate": 0.589,
+ "overall_winrate": 0.6714
 }
