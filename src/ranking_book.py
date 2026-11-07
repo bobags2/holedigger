@@ -99,8 +99,31 @@ def run(
     days, R, syms = cs.session_returns(closes)
     _all_days, bounds = session_bounds(closes)
     spreads = spread_at_bars(closes, bounds, syms)
-    # index spreads by COLUMN (sym position), so a leg index looks up its own symbol's rows
-    spread_by_col = [spreads.get(s, np.zeros((0, 2))) for s in syms]
+
+    # ALIGNED, not per-symbol. spread_at_bars returns ONE ROW PER SYMBOL SESSION (48-139 rows
+    # for a 139-day union: a symbol that missed sessions has fewer). The cost loop indexed it
+    # with the UNION day index, so sp[d-1] read a DIFFERENT SESSION's spread - silently, since
+    # 48 rows fits inside 139. The fix maps each symbol's own session days to their positions
+    # in the union, so sp_by_col[leg][d] is that leg's entry/exit spread on session d.
+    sp_by_col = []
+    for s in syms:
+        arr = spreads.get(s)
+        if arr is None or not len(arr):
+            sp_by_col.append(np.full((len(days), 2), np.nan))
+            continue
+        own_days = bounds.get(s)[:, 1] if bounds.get(s) is not None and len(bounds.get(s)) else np.zeros(0, dtype=np.int64)
+        # bounds row i's bar index -> normalize to the day it belongs to
+        sp = pd.read_parquet(config.PARQUET_DIR / f"{s}_MT5_M1.parquet").set_index("ts")
+        m = (sp.index.hour >= cs.SESSION_START_HOUR) & (sp.index.hour < cs.SESSION_END_HOUR)
+        own_ts = sp.index[m][own_days].normalize().asi8
+        pos = np.searchsorted(days, own_ts)
+        keep = (pos < len(days)) & (days[np.clip(pos, 0, len(days) - 1)] == own_ts)
+        out = np.full((len(days), 2), np.nan)
+        if keep.any():
+            out[pos[keep]] = arr[keep]
+        sp_by_col.append(out)
+    # `prev` indexes the SAME union-day rows as the returns matrix, so d-1 is now correct
+    spread_by_col = sp_by_col
 
     prev = np.full_like(R, np.nan)
     prev[1:] = R[:-1]
@@ -122,14 +145,24 @@ def run(
         order = obs[np.argsort(f[obs], kind="stable")]     # ascending feature, observed only
         shorts, longs = order[:n_legs], order[-n_legs:]
         g = float(r[longs].mean() - r[shorts].mean())      # market-neutral long/short spread
+        # THE COST, DEFINED BEFORE THE ENTRY. A leg costs its ENTRY spread plus its EXIT
+        # spread, both measured on the SESSION THE TRADE IS HELD OVER (session d), for every
+        # leg the book actually holds. Charging the average across legs makes cost_bp a
+        # per-leg figure on the same scale as gross_bp, which is what makes
+        # ``net = gross - cost`` a statement about the book.
+        #
+        # The version before this fix summed ``sp[d-1]`` - the PREVIOUS session's entry+exit,
+        # both columns - and spread_at_bars returned per-symbol session rows indexed with the
+        # union-day array, so it also read the wrong session's spreads. That produced 42.98 bp
+        # where the median equity entry+exit is ~10 bp.
         c, legs = 0.0, 0
         for leg in list(longs) + list(shorts):
             sp = spread_by_col[leg]
-            if len(sp) and 0 <= d - 1 < len(sp):
-                c += float(np.nansum(sp[d - 1]))
+            if len(sp) and 0 <= d < len(sp) and np.isfinite(sp[d]).all():
+                c += float(sp[d][0]) + float(sp[d][1])
                 legs += 1
         gross.append(g)
-        cost.append(c / max(len(longs) + len(shorts), 1))
+        cost.append(c / max(legs, 1))
         n_long.append(int(len(longs)))
         n_short.append(int(len(shorts)))
 
@@ -164,12 +197,13 @@ def run(
             order = obs[np.argsort(f[obs], kind="stable")]
             shorts, longs = order[:n_legs], order[-n_legs:]
             g.append(float(r[longs].mean() - r[shorts].mean()))
-            cst = 0.0
+            cst, nlegs = 0.0, 0
             for leg in list(longs) + list(shorts):
                 sp = spread_by_col[leg]
-                if len(sp) and 0 <= d - 1 < len(sp):
-                    cst += float(np.nansum(sp[d - 1]))
-            c.append(cst / max(len(longs) + len(shorts), 1))
+                if len(sp) and 0 <= d < len(sp) and np.isfinite(sp[d]).all():
+                    cst += float(sp[d][0]) + float(sp[d][1])
+                    nlegs += 1
+            c.append(cst / max(nlegs, 1))
         null_net[w] = float(np.nanmean(np.asarray(g) - np.asarray(c)))
 
     return {
