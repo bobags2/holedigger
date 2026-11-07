@@ -1,24 +1,23 @@
 # research/
 
-Exploratory / pre-registered strategy investigations.
-
-**Everything here is exploratory.** Files in `research/` are not covered by the permanent test
-suite, and their results are not promoted into `artifacts/` until they survive the same
-discipline as anything else: a frozen specification written before the first result is read,
-a control that measures something, and a cost charged at the instrument's own venue.
+Exploratory / pre-registered strategy investigations. Not covered by the permanent suite;
+results are not promoted to `artifacts/` until they survive the same discipline as anything
+else: a frozen specification written before the first result is read, a control that measures
+something, and a cost charged at the instrument's own venue.
 
 ## Contents
 
-- `p1_vwap_nas100.py` — VWAP 2σ fade on the account's own NAS100 M1 panel, dev/val/holdout
-  split, real contract volume, measured venue cost. Result in the accompanying design note.
-  **Rejected as specified**: the reversion leg earns +37.14 bp at 81.8% win rate when the
-  target is reached, but 29% of signals never revert and exit at the session close for
-  −140.42 bp, and the overall expectancy is −14.60 bp (dev) / −27.26 (validation).
+| File | Question | Result |
+|---|---|---|
+| `p1_vwap_nas100.py` | Does the VWAP 2σ fade on the own NAS100 panel clear its toll? | **Rejected.** −14.60 / −27.26 / +1.87 bp (dev/val/holdout). Reversion leg earns +37.14 bp at 81.8% when the target is hit; the 29% that miss exit at session close for −140.42 bp. Financing priced out at 1.1 bp. |
+| `p2_hourly_cost_screen.py` | Which instrument × hour combos clear their own toll? | **3 candidates, all below toll.** 163 cells → 24 \|t\|>2 → 14 same-sign OOS → 7 past cost gate → 3 after a year-by-year sign gate. EURUSD h22/h23 (5/6 yrs) lean +0.25/+0.48 bp against a 1.07 bp toll. |
+| `p3_spread_inference.py` | Can a 6-year OHLCV panel's spread be inferred, so 6-year studies can be priced? | **Dead in principle.** Inference MAE does not beat a flat median (−36% on XAGUSD, −62% on EURUSD, +34% on XPTUSD which is mostly bias). Bar range explains R²=0.077 and \|ret\| R²=0.045 of spread variance — the information is not in OHLCV. |
 
 ## Why the negative results stay
 
-A frozen spec that fails is the deliverable. Two of this file's defects produced *plausible*
-numbers — a 99.3% win rate with a profit factor of 3×10⁴, and a mirror control that returned
-exactly −(P&L) and therefore measured nothing — and neither would have been caught by looking
-at the output. That is the same class of failure the permanent suite was built to catch, and
-the record of it is worth more than the negative result it replaced.
+A frozen spec that fails is the deliverable. Three of this directory's defects produced
+*plausible* numbers — a 99.3% win rate with PF 3×10⁴ from a look-ahead fill, a mirror control
+that returned exactly −(P&L) and measured nothing, and t-stats of −57,082 from a bp-vs-log-return
+unit mismatch. None would have been caught by reading the output. That is the same failure class
+the permanent suite exists to catch, and the record of it is worth more than the results it
+replaced.
