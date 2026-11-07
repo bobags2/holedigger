@@ -23,3 +23,11 @@ the permanent suite exists to catch, and the record of it is worth more than the
 replaced.
 | 4 | `p4_pair_gold_nasdaq.py` | Does gating a pair on live cointegration turn an unprofitable pair into a tradeable one? | **The gate works, the sample starves.** Gold/Nasdaq is the venue's cheapest pair (0.99 bp both legs): gated +35.18 bp vs an ungated control of +3.41 bp, but **t = +0.40 on 12 trades** because the gate opens on only 2.1% of days. Gold/silver conditional is dead on cost (15.89 bp toll vs a 4.18 bp edge). |
 | 5 | `p5_pair_us500_nas100.py` | Does the US500/NAS100 pair clear once the cTrader toll prices it? | **Negative, and well-powered.** −7.91 bp net, t = −2.09, 259 trades, gate open 99.6% of days. Year-by-year: negative in **6 of 7 years**. The +5.94 bp in `pair_sweep.json` is a 2021 artifact. |
+
+**Cross-venue addendum.** `src/venue_cost.py` now also reads the cTrader live quote tape
+(`ctrader/tape/`, 123,983 quotes / 27 instruments), which prices symbols the MT5 panels do not
+cover (US500, USDX, XPDUSD) and is a second venue we can choose between. The two disagree
+systematically by asset class — 0.84–0.97× on gold/indices/energy, 0.43–0.53× on
+silver/aluminium/copper/lead. That unblocked four pairs from pricing; all four were then tested
+as gated pairs with the year gate, and none survived (`p5_pair_us500_nas100.py` is the template:
+US500/NAS100, −7.91 bp, t −2.09, negative in 6 of 7 years).
