@@ -31,3 +31,4 @@ systematically by asset class — 0.84–0.97× on gold/indices/energy, 0.43–0
 silver/aluminium/copper/lead. That unblocked four pairs from pricing; all four were then tested
 as gated pairs with the year gate, and none survived (`p5_pair_us500_nas100.py` is the template:
 US500/NAS100, −7.91 bp, t −2.09, negative in 6 of 7 years).
+| 6 | `p6_weekend_crypto.py` | Weekend crypto: is it a direction anomaly or a liquidity effect? | **Activity effect confirmed; direction NOT ESTIMABLE from this sample.** BTC weekend 9,091 ticks/hr vs weekday 17,857 (0.51×), ETH 3,694 vs 10,000 (0.37×) on 1.3M/1.26M ticks. The direction comparison is contaminated: BTC fell 7.42% over the 13-day window with daily ±500 bp, one weekend day missing (Nov 1 = 0 ticks), and daily returns far larger than the weekend effect ever claimed. Reconciles Kaiser/Mueller with Sovbetov: activity is robust, direction is not testable at this sample size. |
