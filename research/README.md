@@ -21,3 +21,4 @@ that returned exactly −(P&L) and measured nothing, and t-stats of −57,082 fr
 unit mismatch. None would have been caught by reading the output. That is the same failure class
 the permanent suite exists to catch, and the record of it is worth more than the results it
 replaced.
+| 4 | `p4_pair_gold_nasdaq.py` | Does gating a pair on live cointegration turn an unprofitable pair into a tradeable one? | **The gate works, the sample starves.** Gold/Nasdaq is the venue's cheapest pair (0.99 bp both legs): gated +35.18 bp vs an ungated control of +3.41 bp, but **t = +0.40 on 12 trades** because the gate opens on only 2.1% of days. Gold/silver conditional is dead on cost (15.89 bp toll vs a 4.18 bp edge). |
