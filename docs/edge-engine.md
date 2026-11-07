@@ -441,7 +441,7 @@ instrument-specific" — and that warning applies to its own entries, including 
 | Edge | Instrument | Mode | Expected net | Status |
 |---|---|---|---|---|
 | VWAP fade | NAS100, 15m | signal | **−14.60 / −27.26 / +1.87 (dev/val/holdout)** | **rejected — +37 bp leg vs a −140 bp tail** |
-| ORB (15-min opening range) | NAS100 | signal | **gross −1.41 bp, net −1.96, t −10.3, negative 7/7 years** | **rejected as specified — see P7** |
+| ORB (15-min opening range) | NAS100 | signal, their rule | **gross −0.01 bp, net −0.56 bp, t −11.2, 0/7 years** | **rejected — gross ≈ 0, see P7** |
 | Hourly lean | EURUSD h22/h23 | signal | +0.25 / +0.48 bp, 5/6 yrs | **rejected: below 1.07 bp toll** |
 | Hourly lean | XCUUSD h2 | signal | +3.17 bp, 5/7 yrs | **rejected: 1.2× toll, instrument 19 bp** |
 | Hourly lean | XAUUSD/XAGUSD/XTI lean hours | signal | pooled t>2, but **1-of-5/1-of-7 yrs** | **rejected: per-year gate** |

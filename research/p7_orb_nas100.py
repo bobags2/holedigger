@@ -35,17 +35,38 @@ from src import config, venue_cost as vc
 
 
 def detect_session_start(bars: pd.DataFrame) -> pd.Series:
-    """Session start hour per day, from volume. The US cash session is the loudest hour."""
+    """The hour in which the day's volume STEP-UP occurs, not the loudest hour.
+
+    Verified defect in the first version: it used the *peak-volume* hour. On this feed the
+    loudest hour is 14:xx, but the cash open is 13:30 (EDT) / 14:30 (EST) UTC, and bars are
+    timestamped at bar-OPEN. So a 15-minute "opening range" was built from bars labelled
+    13:00-13:15, which cover 12:30-12:45 - i.e. 30 to 60 minutes of PRE-OPEN quiet tape, and
+    the strategy then waited for price to break a range that formed before the open. The
+    largest adjacent-hour volume jump lands in hour 13 on 611 of 1,034 days, which is the open
+    arriving.
+    """
     d = bars.copy()
     d["day"] = d["ts"].dt.date
     d["h"] = d["ts"].dt.hour
     per = d.groupby(["day", "h"])["vol"].sum().reset_index()
-    peaks = per.loc[per.groupby("day")["vol"].idxmax()].set_index("day")["h"]
-    return peaks.reindex(d["day"]).to_numpy()
+    out = []
+    for day, g in per.groupby("day"):
+        g = g.sort_values("h")
+        best, best_h = -1.0, None
+        for i in range(1, len(g)):
+            a, b = int(g["h"].iloc[i - 1]), int(g["h"].iloc[i])
+            if a in (20, 21, 22, 23) or b > 17:
+                continue
+            r = g["vol"].iloc[i] / max(g["vol"].iloc[i - 1], 1.0)
+            if r > best:
+                best, best_h = r, b
+        out.append((day, best_h if best_h is not None else 13))
+    step = pd.Series({d_: h for d_, h in out})
+    return step.reindex(d["day"]).to_numpy()
 
 
-def run(range_minutes: int = 15, stop_mode: str = "opposite") -> dict:
-    df = pd.read_parquet(config.PARQUET_DIR / "NAS100_M1.parquet")
+def run(range_minutes: int = 15, stop_mode: str = "opposite", symbol: str = "NAS100") -> dict:
+    df = pd.read_parquet(config.PARQUET_DIR / f"{symbol}_M1.parquet")
     df["ts"] = pd.to_datetime(df["ts"])
     # the long panels call it `volume`; normalise first so every use below agrees
     df = df.rename(columns={"volume": "vol"})
@@ -77,7 +98,13 @@ def run(range_minutes: int = 15, stop_mode: str = "opposite") -> dict:
         first = g[g["in_sess"]]
         if len(first) < range_minutes + 30:
             continue
-        rng = first.iloc[:range_minutes]
+        # the open is at :30 on EDT / :00 on EST. The first bar in the step hour is bar-OPEN,
+        # so take the slice that begins at the detected open BAR, not the hour's first bar.
+        open_bar = np.searchsorted(
+            first["ts"].to_numpy(),
+            np.datetime64(pd.Timestamp(first["ts"].iloc[0]).replace(minute=30)), side="left")
+        rng_bars = first.iloc[max(open_bar, 0): max(open_bar, 0) + range_minutes]
+        rng = rng_bars if len(rng_bars) == range_minutes else first.iloc[:range_minutes]
         hi, lo = float(rng["high"].max()), float(rng["low"].min())
         if hi <= lo:
             continue
@@ -102,17 +129,28 @@ def run(range_minutes: int = 15, stop_mode: str = "opposite") -> dict:
                     side, entered, e_i = 1, True, i
                 elif prev_inside and row["close"] < lo:
                     side, entered, e_i = -1, True, i
+            elif stop_mode == "published":
+                # THE ACTUAL PUBLISHED RULE: no stop, no target, held to the session close
+                # (CE Market Solutions: "exit at 15:59 ET", stops/targets absent). The first
+                # version added a 1.5x target and a stop, which is a DIFFERENT strategy - capping
+                # winners at 1.5R while capping losers at 0.5-1.0R changes the payoff shape
+                # entirely, so its result was never comparable to the published numbers.
+                if i == len(g) - 1 or not g.loc[i + 1]["in_sess"]:
+                    trades.append(dict(sid=k, side=side, entry=float(row["open"]),
+                                       exit=float(row["close"]), reason="close", ei=e_i, xi=i,
+                                       edate=g.loc[e_i, "ts"]))
+                    break
+                continue
             else:
                 # three stop placements, because the first version used the midpoint and 66% of
-                # trades stopped out immediately - a breakout that retraces HALF its range before
+                # trades stopped out immediately - a breakout retracing HALF its range before
                 # resuming is ordinary, so a midpoint stop is a defect rather than a result
                 if stop_mode == "mid":
                     stop_level = (hi + lo) / 2.0
                 elif stop_mode == "opposite":
                     stop_level = lo if side == 1 else hi
-                else:                       # wide: 1.5x the range beyond the opposite side
+                else:                       # wide: 0.5x the range beyond the opposite side
                     stop_level = lo - 0.5 * width if side == 1 else hi + 0.5 * width
-                # stop first if a bar hits both, the conservative ordering
                 hit_stop = (row["low"] <= stop_level) if side == 1 else (row["high"] >= stop_level)
                 if hit_stop:
                     trades.append(dict(sid=k, side=side, entry=float(row["open"]),
@@ -132,14 +170,12 @@ def run(range_minutes: int = 15, stop_mode: str = "opposite") -> dict:
                                        exit=float(row["close"]), reason="close", ei=e_i, xi=i,
                                        edate=g.loc[e_i, "ts"]))
                     break
-        else:
-            continue
     tr = pd.DataFrame(trades)
     if tr.empty:
         return {"range_min": range_minutes, "trades": 0}
     raw_pts = (tr["exit"] - tr["entry"]) * tr["side"].values
     gross_bp = raw_pts * pts_to_bp
-    cost = vc.load_cost("NAS100")
+    cost = vc.load_cost(symbol)
     net = gross_bp - cost.roundtrip_med_bp
     # per-year grouping from the ENTRY BAR'S OWN TIMESTAMP, carried in the record. Indexing the
     # full panel with indices that were assigned inside a filtered sub-frame returns the wrong
