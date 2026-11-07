@@ -61,3 +61,5 @@ input and not a strategy basis.
 session. The ~8 bp figure the reviewer derived came from the stopped-mode run, which is
 superseded (its stop and target are not in the published rule). The bp/log-return unit bug that
 produced t = −57,082 is fixed and is item 3 above.
+
+| 11 | `p11_range_model.py` | Is next-period RANGE predictable, and does predicted range clear the toll? | **Strongly yes, and it reframes the whole register.** Out-of-sample R² **0.38–0.70** across the panel (directional families measured ~0.45 bp effects). Opportunity = predicted range ÷ measured toll: **XAUUSD 31.6×** (p90 54.3×), XTIUSD 4.15×, XCUUSD 1.65×, XNGUSD 0.96×, XPTUSD 0.35×. Not an alpha claim — a sizing/filtering input. |
