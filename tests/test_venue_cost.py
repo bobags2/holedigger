@@ -50,6 +50,41 @@ def test_expensive_instruments_are_flagged_not_averaged_away() -> None:
     assert c.asset_class == "metal", c.asset_class
 
 
+def test_tape_ledger_prices_symbols_mt5_cannot() -> None:
+    """US500/USDX have no MT5 tick history but ARE on the cTrader tape."""
+    for sym in ("US500", "USDX", "XPDUSD"):
+        c = vc.load_tape_cost(sym)
+        assert c.n_bars >= 200, (sym, c.n_bars)
+        assert c.spread_med_bp > 0, sym
+        assert c.roundtrip_med_bp == 2 * c.spread_med_bp
+
+
+def test_venue_ratio_is_systematic_by_instrument_class() -> None:
+    """cTrader is ~0.5x MT5 on base metals and silver, ~0.9x on gold/indices/energy.
+
+    This is the load-bearing claim of the cross-venue ledger: a strategy papered on one
+    venue's numbers can be wrong by 2x on another, and the sign of the error is predictable
+    by asset class. If this ever stops holding, the cross-venue corrections in this repo
+    stop being valid and must be recomputed.
+    """
+    v = vc.venue_comparison(["XAUUSD", "XAGUSD", "XCUUSD", "XALUSD", "NAS100", "XTIUSD"])
+    v = v.set_index("symbol")
+    for s in ("XAGUSD", "XCUUSD", "XALUSD"):
+        assert 0.3 < v.loc[s, "ratio_ct_vs_mt5"] < 0.7, (s, v.loc[s, "ratio_ct_vs_mt5"])
+    for s in ("XAUUSD", "NAS100", "XTIUSD"):
+        assert 0.75 < v.loc[s, "ratio_ct_vs_mt5"] < 1.1, (s, v.loc[s, "ratio_ct_vs_mt5"])
+
+
+def test_fx_zero_quote_defect_raises_on_the_tape_too() -> None:
+    """EURUSD/GBPUSD report exactly 0bp on the tape: same defect, must not be priced as free."""
+    for sym in ("EURUSD", "GBPUSD"):
+        try:
+            vc.load_tape_cost(sym)
+            raise AssertionError(f"{sym} should be unusable on the tape (zero quotes)")
+        except ValueError:
+            pass
+
+
 def test_ledger_ranks_by_taken_toll() -> None:
     L = vc.ledger()
     assert not L.empty

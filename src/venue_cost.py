@@ -148,6 +148,84 @@ def load_panel_spread_by_hour(symbol: str, *, parquet=None) -> pd.DataFrame:
     return out
 
 
+def load_tape_cost(symbol: str, *, tape_dir=None, min_quotes: int = 200) -> VenueCost:
+    """Measured venue cost from the cTrader live quote tape instead of the MT5 panels.
+
+    The tape is the second of two independent sources and it changes answers. It records
+    bid/ask/spread_bp per spot event from the cTrader Open API feed, so it carries the quoted
+    spread for symbols the MT5 panels don't cover (US500, USDX, and the agricultural CFDs), and
+    it prices a venue we can actually choose between.
+
+    Same zero-quote repair as ``load_cost``: FX majors resolve to a single price on this feed
+    (EURUSD and GBPUSD report exactly 0.000 bp), so the estimate is a percentile of the
+    nonzero quotes and ``zero_quote_frac`` records that the instrument is unusable on it.
+    """
+    from pathlib import Path
+
+    d = tape_dir or Path(__file__).resolve().parents[2] / "ctrader" / "tape"
+    frames = [Path(p) for p in sorted(d.glob("tape_*.csv"))]
+    if not frames:
+        raise FileNotFoundError(f"no cTrader tape files in {d}")
+    rows = []
+    for p in frames:
+        try:
+            df = pd.read_csv(p)
+        except Exception:
+            continue
+        df = df[df["symbol"] == symbol]
+        if not df.empty:
+            rows.append(df)
+    if not rows:
+        raise FileNotFoundError(f"{symbol}: not present in the cTrader tape ({len(frames)} files scanned)")
+    df = pd.concat(rows)
+    sv = df["spread_bp"].dropna()
+    sv = sv[np.isfinite(sv)]
+    nonzero = sv[sv > 0].to_numpy()
+    if len(nonzero) < min_quotes:
+        raise ValueError(
+            f"{symbol}: only {len(nonzero)} usable nonzero spread quotes on the tape "
+            f"({len(sv)} total) - unusable on this venue, same zero-quote defect as MT5's EURUSD"
+        )
+    zero_frac = float((sv == 0).mean())
+    med = float(np.percentile(nonzero, 75))
+    p90 = float(np.percentile(nonzero, 90))
+    cls = asset_class(symbol)
+    return VenueCost(
+        symbol=symbol, asset_class=cls, n_bars=int(len(sv)),
+        spread_med_bp=med, spread_mean_bp=float(nonzero.mean()), spread_p90_bp=p90,
+        roundtrip_med_bp=2 * med, roundtrip_p90_bp=2 * p90,
+        financing_annual=FINANCING_ANNUAL_FRAC.get(cls, 0.045),
+        zero_quote_frac=zero_frac,
+    )
+
+
+def venue_comparison(symbols: list[str], *, min_quotes: int = 200) -> pd.DataFrame:
+    """MT5 vs cTrader measured spread, per symbol, with the ratio that decides the verdict.
+
+    The ratio is the point: cTrader is 0.84-0.94x MT5 on NAS100, gold, energy, platinum and
+    natural gas, but 0.43-0.53x on silver, aluminium, copper and lead. Base-metal and silver
+    edges that are cost-submerged on MT5 can clear on cTrader, and a strategy papered on one
+    venue's numbers can be wrong by 2x on another.
+    """
+    rows = []
+    for s in symbols:
+        rec = {"symbol": s}
+        for label, fn in (("mt5", load_cost), ("ctrader", load_tape_cost)):
+            try:
+                c = fn(s) if label == "mt5" else load_tape_cost(s, min_quotes=min_quotes)
+                rec[f"{label}_med_bp"] = round(c.spread_med_bp, 4)
+                rec[f"{label}_p90_bp"] = round(c.spread_p90_bp, 4)
+                rec[f"{label}_rt_bp"] = round(c.roundtrip_med_bp, 4)
+                rec[f"{label}_n"] = c.n_bars
+            except Exception:
+                rec[f"{label}_med_bp"] = None
+                rec[f"{label}_rt_bp"] = None
+        if rec.get("mt5_med_bp") and rec.get("ctrader_med_bp"):
+            rec["ratio_ct_vs_mt5"] = round(rec["ctrader_med_bp"] / rec["mt5_med_bp"], 3)
+        rows.append(rec)
+    return pd.DataFrame(rows)
+
+
 def ledger(parquet_dir=None, min_bars: int = 10_000) -> pd.DataFrame:
     """The full venue cost ledger, cheapest round trip first."""
     from pathlib import Path
