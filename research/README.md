@@ -70,3 +70,12 @@ produced t = −57,082 is fixed and is item 3 above.
 | 14 | hold-cap analysis on the account's own gold history | Would a time stop make the book profitable? | **Yes historically, and it is not implementable.** Gold hold ≤30s: +0.775 bp/trade, t +15.15, 84% win, 2/2 years, book goes −7,509 → **+1,755**. But it is a post-entry time stop (1,411 of the 1,625 eliminated trades were closed by hand), and entry-time features carry nothing: net by hour −4.3 to +4.2 bp unstructured, both sides negative, P12 AUC 0.512. |
 | 14 | `p14_execution_system.py` | The buildable version: range gate x execution mode, priced at the toll | **A ranked, runnable schedule.** Hourly passive-markout surface on gold (n 10,704-70,101 per cell): **REST is cheaper in hours 3, 5, 13, 14, 15** — the Asian close and the 13:30 US open; CROSS cheaper in 0, 1, 2, 4, 10, 11, 12, 16, 23. Combined with P11's range: XAUUSD 31.6x room, NAS100 24.7x, XTIUSD 4.15x, XAGUSD 1.82x. No simulated P&L — the net is "predicted range minus the toll of this mode", a decision rather than a return forecast. |
 | 15 | `p15_ctrader_deals.py` | The OTHER account - cTrader 47477688, never analysed | **3,473 positions, and the hold-time gradient REVERSES.** cTrader gold <60s is the WORST bucket (−1.47 bp, 31% win, −137,026) while 300–1800s is best (+0.67 bp, +165,860) — MT5's gradient was the opposite (<30s best). Same market, opposite gradient: hold-time is a property of the book, not the tape. Instrument selection is what survives: gold +71,014 while oil −77,368 with 51% of it in 10 trades. |
+
+**P15 addendum — the month-by-month check on cTrader, which tempers the instrument finding.**
+No instrument is positive in every month. Gold: net bp by month 2026-06 −0.26, 07 −1.18, 08
++0.90, 09 −0.22, 10 −0.64, 11 −2.11. NAS100: −0.13, −2.92, −7.05, −1.36, +2.35, −1.31. Oil is
+negative in 5 of 6 months and its worst is 2026-11 at −11.49 bp. So "gold is the profitable
+instrument on cTrader" is a **book-level aggregation over months that disagree**, not a stable
+monthly edge, and it must not be reported as one. Removing the 10 worst oil trades halves the
+oil loss (−77,368 → −37,958), which is the one part of the instrument finding that survives:
+**position sizing on the tail instruments, not a directional view on which instrument to trade.**
