@@ -116,7 +116,24 @@ def test_zero_quote_instrument_raises_when_unusable() -> None:
             pass
 
 
+def test_crypto_costs_are_the_venues_most_expensive_by_a_wide_margin() -> None:
+    """BTC/ETH are 15x/67x gold's round trip. This is why weekend crypto is an execution input.
+
+    Without this test the ledger would treat crypto like any other asset, and a 'weekend
+    activity is half weekday' finding could be read as an opportunity rather than as a
+    warning about fill depth.
+    """
+    gold = vc.load_cost("XAUUSD")
+    for sym in ("BTCUSD", "ETHUSD"):
+        c = vc.load_crypto_cost(sym)
+        assert c.asset_class == "crypto"
+        assert c.roundtrip_med_bp > gold.roundtrip_med_bp * 5, (sym, c.roundtrip_med_bp)
+
 def main() -> None:
+    # NOTE: this entry point must stay at the END of the file. An earlier version had tests
+    # appended after `if __name__` so they were never registered by this scan: 9 tests passed
+    # while a 10th existed and was silently never executed. A test file that reports a
+    # smaller count than it has tests is the defect, not a curiosity.
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
         t()

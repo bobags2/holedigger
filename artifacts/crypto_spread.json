@@ -1,0 +1,16 @@
+{
+ "BTCUSD": {
+  "bars": 985,
+  "med_bp": 3.311,
+  "p90_bp": 5.618,
+  "rt_bp": 6.623,
+  "zero_frac": 0.0
+ },
+ "ETHUSD": {
+  "bars": 1951,
+  "med_bp": 14.696,
+  "p90_bp": 16.548,
+  "rt_bp": 29.393,
+  "zero_frac": 0.0
+ }
+}

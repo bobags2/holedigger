@@ -29,6 +29,7 @@ FINANCING_ANNUAL_FRAC = {
     "fx": 0.020,        # rate differential + markup; 2026 majors are debit-heavy both ways
     "equity": 0.035,
     "soft_ag": 0.045,
+    "crypto": 0.060,      # highest average on the venue: 4-8% after markup
 }
 
 PREFIX_CLASS = {
@@ -196,6 +197,36 @@ def load_tape_cost(symbol: str, *, tape_dir=None, min_quotes: int = 200) -> Venu
         roundtrip_med_bp=2 * med, roundtrip_p90_bp=2 * p90,
         financing_annual=FINANCING_ANNUAL_FRAC.get(cls, 0.045),
         zero_quote_frac=zero_frac,
+    )
+
+
+def load_crypto_cost(symbol: str, *, parquet=None) -> VenueCost:
+    """Measured venue cost for BTCUSD/ETHUSD from the 5-minute mirror of the broker's tape.
+
+    Crypto is the only market that runs on a weekend, so it is the only instrument class whose
+    spread can be added when everything else is closed. It is in the ledger precisely so nobody
+    has to guess: **BTCUSD costs 6.6 bp and ETHUSD 29.4 bp round trip, i.e. 15x and 67x gold's
+    0.44 bp.** That is the number that decides whether any weekend crypto idea is worth
+    attempting at all, and it is why the weekend activity finding (books at 0.37-0.51x weekday
+    tick rate) is an execution input and not the basis of a strategy.
+    """
+    from pathlib import Path
+
+    d = parquet or (Path(__file__).resolve().parents[1] / "data" / "parquet" / f"{symbol}_crypto_5m.parquet")
+    if not Path(d).exists():
+        raise FileNotFoundError(f"{symbol}: no crypto panel at {d} — regenerate with research/p6_weekend_crypto.py")
+    df = pd.read_parquet(d)
+    sv = df["spread_med_bp"].to_numpy(dtype=float)
+    nonzero = sv[sv > 0]
+    if len(nonzero) < 30:
+        raise ValueError(f"{symbol}: {len(nonzero)} usable nonzero spread bars")
+    med = float(np.percentile(nonzero, 75))
+    p90 = float(np.percentile(nonzero, 90))
+    return VenueCost(
+        symbol=symbol, asset_class="crypto", n_bars=int(len(df)),
+        spread_med_bp=med, spread_mean_bp=float(nonzero.mean()), spread_p90_bp=p90,
+        roundtrip_med_bp=2 * med, roundtrip_p90_bp=2 * p90,
+        financing_annual=FINANCING_ANNUAL_FRAC["crypto"], zero_quote_frac=float((sv == 0).mean()),
     )
 
 
