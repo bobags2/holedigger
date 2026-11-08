@@ -410,8 +410,10 @@ def evaluate_forward(trades: pd.DataFrame, spec: dict, *, by_hour: bool = True,
     """Score a book against the frozen forward spec, and null it by day.
 
     The null keeps the day-clustered structure honest: permuting the sign of whole days is the
-    same construction the rest of this repo uses, and it is what stops "66.7% of days positive"
-    from being an accident of an 84-day book.
+    same construction the rest of this repo uses. It stops an unclustered null from calling a
+    coin-flip day count significant (on 84 days the unclustered null sits at ~50%). It CANNOT
+    catch an evaluation artifact - the path-unaware floor passed this null - so a null result
+    here is necessary, never sufficient.
     """
     t = trades.dropna(subset=["profit", "notional", "open_time"]).copy()
     t["open_time"] = pd.to_datetime(t["open_time"])
