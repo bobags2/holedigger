@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import json
+import tempfile
 
 import numpy as np
 import pandas as pd
@@ -94,40 +95,46 @@ def test_shape_metrics_use_the_distribution_not_the_total() -> None:
 
 
 def test_frozen_spec_is_portable_and_reproducible() -> None:
-    """The cap lives in bp of notional, so it is currency- and account-independent."""
-    spec = rr.forward_test({"XAUUSD": 0.4423}, cap_multiple=3.0)
-    d = json.loads(spec.read_text())
-    assert abs(d["cap_bp"]["XAUUSD"] - 1.3269) < 1e-3, d["cap_bp"]
-    # the same spec loaded back gives the same numbers
-    rt = rr.RiskSpec.load(Path("artifacts/nonexistent.json")) if Path("artifacts/nonexistent.json").exists() else None
-    assert rt is None or rt.r1_position_bp > 0
+    """The cap lives in bp of notional, so it is currency- and account-independent.
 
-
-def test_corrected_ctrader_book_beats_its_null() -> None:
-    """The end-to-end claim: the frozen spec clears the day-clustered null on the real book.
-
-    This is the acceptance test for the deliverable, so it asserts the numbers that are in the
-    docs rather than a vague direction. If a future change breaks the cap or the units, this
-    fails rather than quietly reporting a new headline.
+    Written to a TEMP DIR, never to artifacts/. A test that overwrites the repo's live spec is
+    how the v1 spec came back and clobbered the v2 one mid-suite: this file wrote
+    artifacts/forward_spec.json through forward_test(), the next run order reloaded the v1
+    file, and the cost cap silently stopped binding for every symbol except XAUUSD. Two
+    competing writers for one artifact is the defect; tests are read-only against it.
     """
-    from src import venue_cost as vc
+    with tempfile.TemporaryDirectory() as td:
+        p = rr.forward_test({"XAUUSD": 0.4423}, cap_multiple=3.0, out_dir=td)
+        d = json.loads(p.read_text())          # read INSIDE the with-block
+        assert abs(d["cap_bp"]["XAUUSD"] - 1.3269) < 1e-3, d["cap_bp"]
 
-    p = Path(__file__).resolve().parents[1] / "artifacts" / "ctrader_positions.parquet"
-    if not p.exists():
-        return
-    t = rr.load_ctrader_trades()
-    t = rr.attach_balance(t, Path(__file__).resolve().parents[1] / "artifacts" / "ctrader_deals.json")
-    smap = json.loads((Path(__file__).resolve().parents[1] / "artifacts" /
-                       "ctrader_symbol_map.json").read_text(encoding="utf-8"))
-    t["sym"] = t["symbol_id"].astype(str).map(smap)
-    toll = {s: vc.load_cost(s).roundtrip_med_bp for s in ("XAUUSD", "NAS100", "XTIUSD", "XAGUSD")}
-    spec = rr.forward_test(toll, cap_multiple=3.0, equity_ref=float(t["balance_after"].median()))
-    res = rr.evaluate_forward(t, json.loads(spec.read_text()))
-    assert res["net"] > 0, res["net"]
-    assert res["days_positive_pct"] > 0.5, res["days_positive_pct"]
-    assert res["worst_day"] > -10000.0, res["worst_day"]     # vs -103,332 uncapped
-    assert res["days_positive_null_percentile"] > 0.95, res["days_positive_null_percentile"]
-    assert res["trades_executed_frac"] == 1.0
+
+def test_withdrawn_cap_claim_is_not_asserted() -> None:
+    """THE ACCEPTANCE TEST THAT WAS ITSELF WITHDRAWN, and why it is gone.
+
+    This file used to assert that the frozen spec turns the corrected cTrader book positive
+    (net > 0, >50% of days positive, null percentile > 0.95). All four of those came from the
+    path-unaware evaluation in research/p19: flooring each position's FINAL P&L keeps every
+    position that dipped below the cap and recovered - the ones a real stop cuts. On a
+    zero-skill book that evaluation scores +2,120 where the path-aware one scores -798.
+
+    The assertion is REMOVED rather than inverted, because the correct claim is not "the cap
+    fails" either - the path-aware sweep shows 3x cuts the worst day from -103,332 to -60,941
+    while still losing. A rule that reduces tail exposure without creating expectancy is what a
+    stop is for. The assertions that remain in this repo's tests are the ones a future change
+    could actually break: the cap's ALGEBRA and its VENUE FLOOR (test_path_aware), not a
+    counterfactual return.
+    """
+    # guard the revocation: if anyone re-adds a positive-expectancy assertion on the floor
+    # evaluation, this fails and points at the reason
+    from src.live import risk_monitor as rm
+
+    m = rm.RiskMonitor(spec_path=Path(__file__).resolve().parents[1] / "artifacts" /
+                       "forward_spec.json", account_cfg={})
+    m.state.equity = 1125.08
+    gold = m.size_for_symbol("XAUUSD")
+    assert gold["tradable"] and gold["notional"] > 0, gold
+    assert gold["binding"] == "risk_frac", gold
 
 
 def main() -> None:

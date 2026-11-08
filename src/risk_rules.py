@@ -399,7 +399,11 @@ def forward_test(symbol_to_toll_bp: dict[str, float], *, cap_multiple: float = 3
         "null": "day-clustered sign-flip, per day, 200 worlds",
     }
     out_dir = Path(out_dir) if out_dir else Path(__file__).resolve().parents[1] / "artifacts"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    if not out_dir.exists():
+        raise FileNotFoundError(
+            f"spec output directory {out_dir} does not exist - create it or point out_dir at a "
+            "directory that does. This function does not silently mkdir: a caller that hands it "
+            "an unchecked path is exactly how a spec ends up half-written or missing.")
     p = out_dir / "forward_spec.json"
     p.write_text(json.dumps(spec, indent=1), encoding="utf-8")
     return p

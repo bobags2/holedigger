@@ -8,6 +8,7 @@ Run:  python -m tests.test_path_aware
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -202,6 +203,80 @@ def test_monitor_module_imports_and_advertises_the_floor() -> None:
     src = p.read_text(encoding="utf-8")
     assert "min_notional=VENDUE_MIN_NOTIONAL.get(symbol" in src, "monitor must use the venue floor"
     assert "DO NOT TRADE" in src, "the untradable path must be visible in the log"
+
+
+# --------------------------------------------------------------------------
+# The monitor's three gaps, and the property that the cost cap must bind
+# --------------------------------------------------------------------------
+
+def _monitor():
+    import json
+    from pathlib import Path
+    from src.live import risk_monitor as rm
+
+    return rm.RiskMonitor(
+        spec_path=Path(__file__).resolve().parents[1] / "artifacts" / "forward_spec.json",
+        account_cfg={})
+
+
+def test_cost_cap_actually_binds_on_wide_toll_instruments() -> None:
+    """THE GAP THAT WAS CLOSED. The cap could never bind and the docstring said it did.
+
+    First version: `equity * drawdown_stop_frac / (cap_bp/1e4)` - for gold ~2.1M against a
+    5,625 risk size, and it read a key (`drawdown_stop_frac` at the top level) that the spec
+    did not contain. Every symbol reported `binding: risk_frac`, i.e. the cost cap was inert.
+
+    Now: `equity * risk_frac / (cap_bp/1e4)`, which is the risk rule with stop_bp := cap_bp.
+    Platinum's cap is 242 bp so it sizes at $232 against gold's $5,625 - cost-proportional.
+    """
+    m = _monitor()
+    m.state.equity = 1125.08
+    gold = m.size_for_symbol("XAUUSD")
+    plat = m.size_for_symbol("XPTUSD")
+
+    assert gold["binding"] == "risk_frac", gold
+    assert abs(gold["notional"] - 1125.08 * 0.005 / (10.0 / 1e4)) < 1.0, gold
+
+    # Platinum's cost cap is BELOW its own venue minimum at this equity, so the honest output
+    # is DO NOT TRADE, not a tradable size. Both constraints fire and the floor wins. This is
+    # not a defect: a 242 bp toll genuinely cannot be risked at 0.5% of $1,125 with 0.01 lots,
+    # and pretending otherwise would trade $232 of an instrument whose minimum is $380.
+    assert plat["binding"] == "cost_cap_then_venue_floor", plat
+    assert plat["notional"] == 0.0 and plat["tradable"] is False, plat
+    assert abs(plat["cap_notional"] - 1125.08 * 0.005 / (plat["cap_bp"] / 1e4)) < 1.0, plat
+
+    # At an equity where the cap clears the floor, the cap binds and produces a tradable,
+    # cost-proportional size - which is the behaviour the whole framework exists for.
+    m.state.equity = 20000.0
+    plat2 = m.size_for_symbol("XPTUSD")
+    assert plat2["binding"] == "cost_cap", plat2
+    assert plat2["tradable"] and plat2["notional"] > 0, plat2
+    gold2 = m.size_for_symbol("XAUUSD")
+    assert gold2["binding"] == "risk_frac", gold2
+    assert plat2["notional"] < gold2["notional"], (plat2["notional"], gold2["notional"])
+
+
+def test_cost_cap_cannot_drive_size_below_the_venue_floor() -> None:
+    """A capped size that lands under the broker's minimum must say DO NOT TRADE."""
+    m = _monitor()
+    m.state.equity = 20.0                      # too small for platinum's cap
+    r = m.size_for_symbol("XPTUSD")
+    assert r["notional"] == 0.0, r
+    assert r["tradable"] is False, r
+    assert "do not trade" in r["reason"].lower(), r
+
+
+def test_spec_covers_every_symbol_the_monitor_watches() -> None:
+    """The first spec had one symbol; the monitor reported `cap None bp` for the rest."""
+    spec_path = Path(__file__).resolve().parents[1] / "artifacts" / "forward_spec.json"
+    d = json.loads(spec_path.read_text(encoding="utf-8"))
+    assert d["version"] >= 2, d["version"]
+    for s in ("XAUUSD", "NAS100", "US500", "XAGUSD", "XTIUSD"):
+        assert s in d["cap_bp"], f"{s} unpriced in the frozen spec"
+        assert d["cap_bp"][s] > 0
+        assert d["cap_detail"][s]["venue_toll_median_bp"] > 0
+    # unpriced instruments are RECORDED, not silently dropped
+    assert "unpriced" in d
 
 def main() -> None:
     # MUST STAY AT THE END. A test appended after this point is never registered by the scan -

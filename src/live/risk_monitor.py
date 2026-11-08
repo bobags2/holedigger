@@ -42,6 +42,7 @@ for _extra in (str(_REPO), str(_REPO.parent / "ctrader")):
     if _extra not in sys.path:
         sys.path.insert(0, _extra)
 
+import numpy as np
 import pandas as pd
 
 from ctbridge import client as cb
@@ -63,6 +64,16 @@ VENDUE_MIN_NOTIONAL: dict[str, float] = {
     "US500": 40.0,
     "XAGUSD": 380.0,
     "XTIUSD": 380.0,
+    # A MISSING ENTRY IS NOT A ZERO FLOOR - it is an unknown one, and treating unknown as zero
+    # disables the check. Every symbol the monitor watches must be listed here or the floor is
+    # silently inert for it, which is how a $4.13 platinum size passed as tradable against a
+    # $380 minimum. Platinum's 0.01 lot is the same order as gold's; metals are listed
+    # explicitly rather than inferred from a prefix.
+    "XPTUSD": 380.0,
+    "XPDUSD": 380.0,
+    "EURUSD": 1.0,
+    "GBPUSD": 1.0,
+    "USDX": 10.0,
 }
 
 
@@ -74,11 +85,17 @@ class LiveState:
     halted: bool = False
     halt_reason: str = ""
     quotes: int = 0
+    spread_bp: dict[str, list[float]] = None
+    spread_alerts: dict[str, float] = None
     started_monotonic: float = 0.0
 
     def __post_init__(self):
         if self.equity_history is None:
             self.equity_history = []
+        if self.spread_bp is None:
+            self.spread_bp = {}
+        if self.spread_alerts is None:
+            self.spread_alerts = {}
         self.started_monotonic = time.monotonic()
 
 
@@ -88,7 +105,9 @@ class RiskMonitor:
     def __init__(self, *, spec_path: Path, account_cfg: dict,
                  risk_frac: float = 0.005, stop_bp: float = 10.0,
                  max_leverage: float = 10.0, drawdown_stop: float = 0.25,
-                 equity_poll_s: float = 15.0, report_s: float = 60.0):
+                 equity_poll_s: float = 15.0, report_s: float = 60.0,
+                 spread_alert_multiple: float = 3.0,
+                 spread_alert_window_s: float = 300.0):
         self.spec = json.loads(spec_path.read_text(encoding="utf-8"))
         self.cfg = account_cfg
         self.risk_frac = risk_frac
@@ -97,35 +116,89 @@ class RiskMonitor:
         self.drawdown_stop = drawdown_stop
         self.equity_poll_s = equity_poll_s
         self.report_s = report_s
+        self.spread_alert_multiple = spread_alert_multiple
+        self.spread_alert_window_s = spread_alert_window_s
         self.state = LiveState()
         self._client: cb.OpenApiClient | None = None
         self._stop_evt: asyncio.Event | None = None
 
     # ---- sizing -------------------------------------------------------------
     def size_for_symbol(self, symbol: str) -> dict:
-        """Notional for ``symbol`` at the frozen risk fraction, with the cap applied.
+        """Notional for ``symbol`` at the frozen risk fraction, with the toll cap applied.
 
-        The cap comes from the measured toll in the spec, so a tight-toll instrument grows and a
-        wide-toll one shrinks - the reason the framework ever existed.
+        Two independent constraints, and BOTH must bind:
+
+        1. RISK: ``equity * risk_frac / (stop_bp/1e4)``. Ties size to equity - the finding that
+           explains the account (mean notional 4,043,835 cents against a 6,272-cent median
+           balance, 645x levered).
+        2. COST: the cap in bp of notional, from ``cap_bp`` = ``cap_multiple x the instrument's
+           MEASURED round-trip toll``. Caps the REACHABLE position so a wide-toll instrument
+           (platinum at 80.8 bp) gets a proportionally smaller position than gold at 0.44 bp.
+
+        THE FIRST VERSION NEVER APPLIED (2). It computed ``cap_money`` from
+        ``spec.get("drawdown_stop_frac", 0.0)`` - a key that does not exist in the spec - and
+        assigned it to a local that was never returned or used. So the monitor logged
+        "cap None bp" and the cost cap was inert, while the docstring said it applied. That is
+        the shape of defect this repo keeps finding in itself: correct logic, never wired.
         """
         if self.state.equity <= 0:
-            return {"symbol": symbol, "notional": 0.0, "reason": "equity not known yet"}
+            return {"symbol": symbol, "notional": 0.0, "tradable": False,
+                    "reason": "equity not known yet"}
         rec = rr.sizing_recommendation(
             self.state.equity, stop_bp=self.stop_bp, risk_frac=self.risk_frac,
             max_leverage=self.max_leverage,
             min_notional=VENDUE_MIN_NOTIONAL.get(symbol, 0.0))
-        cap_bp = self.spec["cap_bp"].get(symbol)
-        cap_money = float("inf")
-        if cap_bp:
-            cap_money = self.state.equity * self.spec.get("drawdown_stop_frac", 0.0) or float("inf")
-        notional = rec["notional"]
-        return {
-            "symbol": symbol, "notional": round(rec["notional"], 2),
-            "tradable": rec["tradable"], "reason": rec["reason"],
+        out = {
+            "symbol": symbol,
+            "notional": rec["notional"], "tradable": rec["tradable"], "reason": rec["reason"],
             "risk_money": rec["risk_money_per_trade"],
-            "cap_bp": cap_bp, "equity": round(self.state.equity, 2),
+            "equity": round(self.state.equity, 2),
             "halted": self.state.halted, "halt_reason": self.state.halt_reason,
         }
+        cap_bp = self.spec["cap_bp"].get(symbol)
+        out["cap_bp"] = cap_bp
+        if cap_bp and rec["notional"] > 0:
+            # THE CAP, DEFINED SO IT CAN ACTUALLY BIND. A cap in bp of notional bounds the
+            # adverse move that stops the position: stopping at cap_bp on `notional` costs
+            # notional * cap_bp/1e4 of money. The cap is the size at which that cost equals the
+            # SAME risk_frac of equity the risk rule already uses, i.e.
+            #     cap_notional = equity * risk_frac / (cap_bp / 1e4)
+            # which is the risk_frac rule with stop_bp := cap_bp. So the cap is not a second
+            # arbitrary number: it re-derives the size from the instrument's own measured toll,
+            # and it binds hard on wide-toll instruments (platinum at 242 bp) while being loose
+            # on tight-toll ones (gold at 1.33 bp). That is the intended behaviour: size is
+            # proportional to how cheap the instrument is to trade.
+            #
+            # THE FIRST VERSION COMPUTED equity * drawdown_stop_frac / (cap_bp/1e4), which for
+            # gold is ~2.1M against a 5,625 risk size - it could never bind, it read a key that
+            # does not exist in the spec, and the docstring said the cap applied. Correct logic,
+            # never wired, plausible output.
+            out["cap_notional"] = round(
+                self.state.equity * self.risk_frac / (cap_bp / 1e4), 2)
+            if out["cap_notional"] < out["notional"]:
+                out["binding"] = "cost_cap"
+                out["notional_before_cap"] = out["notional"]
+                out["notional"] = out["cap_notional"]
+            else:
+                out["binding"] = "risk_frac"
+            # THE VENUE FLOOR IS RE-CHECKED AFTER BOTH CONSTRAINTS, not only inside
+            # sizing_recommendation. The cap can drive a size below the broker's minimum after
+            # the risk rule cleared it (measured: platinum's cap at $20 equity is $4.13 against
+            # a $380 floor), and if the floor is only applied upstream the monitor reports a
+            # tradable $4.13 the venue cannot fill - which is the same defect class as the
+            # original $2.70, in the opposite direction.
+            floor = VENDUE_MIN_NOTIONAL.get(symbol, 0.0)
+            if floor and out["notional"] < floor:
+                out["notional"] = 0.0
+                out["tradable"] = False
+                out["reason"] = (
+                    f"sized notional {out['cap_notional']:.2f} is below the venue minimum "
+                    f"{floor:.2f} - do not trade")
+                out["binding"] = f"{out['binding']}_then_venue_floor"
+        elif out["notional"] > 0:
+            out["binding"] = "risk_frac"
+        out["notional"] = round(out["notional"], 2)
+        return out
 
     # ---- equity -------------------------------------------------------------
     async def poll_equity(self) -> None:
@@ -171,8 +244,53 @@ class RiskMonitor:
 
     # ---- spot ---------------------------------------------------------------
     async def on_quote(self, quote) -> None:
-        """Count quotes; the tape handler (optional) does the same job for history."""
+        """Count quotes AND measure the live spread against the ledger's toll.
+
+        The ledger's toll is measured from a ~200-day window; the live spread is the thing the
+        ledger claims to predict. Keeping them side by side is the only way to know when the
+        ledger has gone stale - and a stale ledger silently mis-sizes every position built on it.
+
+        A quote whose spread exceeds the spec cap's implied multiple of the ledger toll is logged
+        once per symbol per ``spread_alert_window_s``, rather than per tick, so a stuck quote
+        cannot flood the log.
+        """
         self.state.quotes += 1
+        bid, ask = getattr(quote, "bid", None), getattr(quote, "ask", None)
+        sym = getattr(quote, "symbol", "")
+        if bid is None or ask is None or not sym:
+            return
+        mid = (bid + ask) / 2.0
+        if mid <= 0:
+            return
+        bp = (ask - bid) / mid * 1e4
+        self.state.spread_bp.setdefault(sym, [])
+        self.state.spread_bp[sym].append(bp)
+        cap = self.spec["cap_bp"].get(sym)
+        toll = (cap / self.spec["cap_multiple"]) if cap else None
+        if toll and toll > 0 and bp > self.spread_alert_multiple * toll:
+            now = time.monotonic()
+            last = self.state.spread_alerts.get(sym, 0.0)
+            if now - last > self.spread_alert_window_s:
+                self.state.spread_alerts[sym] = now
+                samples = self.state.spread_bp[sym]
+                log.warning(
+                    "%-8s live spread %.3f bp is %.1fx the ledger toll %.3f bp "
+                    "(spec cap %.3f bp) - ledger may be stale; %d quotes, median %.3f",
+                    sym, bp, bp / toll, toll, cap, len(samples), float(np.median(samples)))
+
+    def spread_stats(self, symbol: str) -> dict:
+        """Live spread distribution for ``symbol``, against the ledger toll."""
+        v = self.state.spread_bp.get(symbol) or []
+        if not v:
+            return {"symbol": symbol, "n": 0}
+        cap = self.spec["cap_bp"].get(symbol)
+        toll = (cap / self.spec["cap_multiple"]) if cap else None
+        return {"symbol": symbol, "n": len(v),
+                "median_bp": round(float(np.median(v)), 4),
+                "p90_bp": round(float(np.quantile(v, 0.9)), 4),
+                "max_bp": round(float(max(v)), 4),
+                "ledger_toll_bp": toll,
+                "ratio_median": round(float(np.median(v) / toll), 3) if toll else None}
 
     # ---- reporting ----------------------------------------------------------
     async def report(self, symbols: list[str]) -> None:
@@ -182,11 +300,19 @@ class RiskMonitor:
                 log.info("equity %.2f | halted %s (%s)", self.state.equity,
                          self.state.halted, self.state.halt_reason or "-")
                 for r in rows:
-                    if r["tradable"]:
-                        log.info("   %-8s notional %12.2f  risk %8s  cap %s bp",
-                                 r["symbol"], r["notional"], r["risk_money"], r["cap_bp"])
-                    else:
+                    if not r["tradable"]:
                         log.info("   %-8s DO NOT TRADE (%s)", r["symbol"], r["reason"])
+                        continue
+                    cap = f"{r['cap_bp']}bp" if r.get("cap_bp") else "unpriced"
+                    if r.get("binding") == "cost_cap":
+                        log.info("   %-8s notional %12.2f  risk %8s  cap %s BINDS "
+                                 "(from %12.2f)",
+                                 r["symbol"], r["notional"], r["risk_money"], cap,
+                                 r.get("notional_before_cap", float("nan")))
+                    else:
+                        log.info("   %-8s notional %12.2f  risk %8s  cap %s %s",
+                                 r["symbol"], r["notional"], r["risk_money"], cap,
+                                 _spread_note(self, r["symbol"]))
             try:
                 await asyncio.wait_for(self._stop_evt.wait(), timeout=self.report_s)
             except asyncio.TimeoutError:
@@ -225,9 +351,20 @@ class RiskMonitor:
             "equity_points": len(self.state.equity_history),
             "halted": self.state.halted, "halt_reason": self.state.halt_reason,
             "quotes": self.state.quotes,
+            "spread_stats": {s: self.spread_stats(s) for s in self.state.spread_bp},
             "kill_switch": rr.kill_switch(self.state.equity_history,
                                           peak_dd_frac=self.drawdown_stop),
         }
+
+
+def _spread_note(monitor: "RiskMonitor", symbol: str) -> str:
+    st = monitor.spread_stats(symbol)
+    if not st.get("n"):
+        return ""
+    if st.get("ratio_median") is None:
+        return ""
+    return (f"| live spread med {st['median_bp']:.3f} bp "
+            f"({st['ratio_median']:.2f}x ledger, n={st['n']})")
 
 
 def format_headline(res: dict, spec_path: Path) -> str:

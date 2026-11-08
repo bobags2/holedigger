@@ -1,20 +1,97 @@
 {
- "version": 1,
+ "version": 2,
  "cap_multiple": 3.0,
  "cap_bp": {
-  "XAUUSD": 1.3269
+  "XAUUSD": 1.327,
+  "XAGUSD": 21.6436,
+  "XTIUSD": 19.4412,
+  "NAS100": 1.5479,
+  "US500": 2.3175,
+  "XPTUSD": 242.3887,
+  "EURUSD": 3.1297,
+  "USDX": 14.0819
  },
- "equity_ref": 0.0,
+ "cap_detail": {
+  "XAUUSD": {
+   "venue_toll_median_bp": 0.4423,
+   "cap_bp": 1.327,
+   "mt5_rt_med_bp": 0.4423,
+   "ctrader_rt_med_bp": 0.4843,
+   "mt5_n_bars": 338892,
+   "ctrader_n_quotes": 11340
+  },
+  "XAGUSD": {
+   "venue_toll_median_bp": 7.2145,
+   "cap_bp": 21.6436,
+   "mt5_rt_med_bp": 15.4452,
+   "ctrader_rt_med_bp": 7.2145,
+   "mt5_n_bars": 338833,
+   "ctrader_n_quotes": 5763
+  },
+  "XTIUSD": {
+   "venue_toll_median_bp": 6.4804,
+   "cap_bp": 19.4412,
+   "mt5_rt_med_bp": 7.0084,
+   "ctrader_rt_med_bp": 6.4804,
+   "mt5_n_bars": 338374,
+   "ctrader_n_quotes": 4531
+  },
+  "NAS100": {
+   "venue_toll_median_bp": 0.516,
+   "cap_bp": 1.5479,
+   "mt5_rt_med_bp": 0.5489,
+   "ctrader_rt_med_bp": 0.516,
+   "mt5_n_bars": 59055,
+   "ctrader_n_quotes": 13909
+  },
+  "US500": {
+   "venue_toll_median_bp": 0.7725,
+   "cap_bp": 2.3175,
+   "mt5_rt_med_bp": null,
+   "ctrader_rt_med_bp": 0.7725,
+   "mt5_n_bars": null,
+   "ctrader_n_quotes": 1456
+  },
+  "XPTUSD": {
+   "venue_toll_median_bp": 80.7962,
+   "cap_bp": 242.3887,
+   "mt5_rt_med_bp": 83.4212,
+   "ctrader_rt_med_bp": 80.7962,
+   "mt5_n_bars": 337371,
+   "ctrader_n_quotes": 7572
+  },
+  "EURUSD": {
+   "venue_toll_median_bp": 1.0432,
+   "cap_bp": 3.1297,
+   "mt5_rt_med_bp": 1.0432,
+   "ctrader_rt_med_bp": null,
+   "mt5_n_bars": 355388,
+   "ctrader_n_quotes": null
+  },
+  "USDX": {
+   "venue_toll_median_bp": 4.694,
+   "cap_bp": 14.0819,
+   "mt5_rt_med_bp": null,
+   "ctrader_rt_med_bp": 4.694,
+   "mt5_n_bars": null,
+   "ctrader_n_quotes": 1147
+  }
+ },
+ "unpriced": [],
  "judge_on": [
-  "days_positive_pct",
-  "worst_day",
+  "net_expectancy_after_costs_ci",
+  "max_drawdown",
+  "ruin_prob",
   "worst10_share",
-  "trades_per_day_kept"
+  "trades_executed_frac"
  ],
  "target": {
-  "days_positive_pct_min": 0.5,
-  "worst10_share_max": 0.5,
-  "book_untouched_min": 0.8
+  "net_expectancy_ci_low_min": 0.0,
+  "max_drawdown_pct_max": 25.0,
+  "ruin_prob_max": 0.05,
+  "worst10_share_max": 0.5
  },
- "null": "day-clustered sign-flip, per day, 200 worlds"
+ "null": "day-clustered sign-flip, per day, 200 worlds",
+ "drawdown_stop_frac": 0.25,
+ "derivation": "cap_bp = cap_multiple x the instrument's MEASURED round-trip toll, taken from the cheaper of the two venues in src/venue_cost. Cost is measured, not fitted. NOTE: this is the spec's definition; the earlier claim that a 3x-toll cap improves a book was WITHDRAWN as path-unaware (research/p19). The cap is now a sizing constraint, not a return claim."
 }
