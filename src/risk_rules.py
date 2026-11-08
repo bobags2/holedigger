@@ -55,6 +55,18 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+#: cTrader money fields are in CENTS on this account. Verified live against ProtoOATraderReq on
+#: account 47477688: ``balance: 54`` with ``moneyDigits: 2``, so the live balance is **$0.54**
+#: and the history's 112,508 is **$1,125.08**. ``leverageInCents: 50000`` is **500x levered**.
+#: Every USD figure this repo quoted before this line was 100x too large; net -602,934 is
+#: **-$6,029.34**, mean notional 4,043,835 is **$40,438**, median balance 6,272 is **$62.72**.
+MONEY_DIVISOR = 100.0
+
+
+def load_money(cents: float) -> float:
+    """Convert a cTrader money field from cents to the deposit currency."""
+    return float(cents) / MONEY_DIVISOR
+
 
 @dataclass(frozen=True)
 class RiskSpec:
