@@ -138,24 +138,43 @@ What it left is the most robust finding in the project, and it is not about dire
 of gold's, and 51% of the entire oil loss is ten trades out of 734. A cap is enforceable at
 entry time with no forecast, so `src/risk_rules.py` builds one.
 
-**The rule that works, and why its level is not a fit.** Cap each position at 3x that
-instrument's *measured venue toll* (`src/venue_cost`, the cost ledger):
+**The rule that looked like it worked — and is withdrawn.** Cap each position at 3x that
+instrument's measured venue toll (`src/venue_cost`):
 
-| | net | days positive | worst day | worst 10 |
-|---|---|---|---|---|
-| as measured | −602,934 | 13.1% | −103,332 | −404,494 |
-| capped at 3× toll | **+1,210,466** | **66.7%** | **−5,794** | **−48,242** |
+| | net | days positive | worst day |
+|---|---|---|---|
+| as measured | −602,934 | 13.1% | −103,332 |
+| ~~capped at 3× toll~~ | ~~+1,210,466~~ | ~~66.7%~~ | ~~−5,794~~ |
 
-1,291 of 3,473 positions are capped. Gold goes −418,982 → +1,110,834 and NAS100 −41,199 →
-+163,469; silver and oil stay negative, because their tolls are 15.45 bp and 7.01 bp and a cap
-at 3× those is too wide to bind.
+**Why it is withdrawn, and it is not a subtlety.** That evaluation floored each position's FINAL
+P&L at the cap. A stop fires when the price path TOUCHES the level, so the floor kept every
+position that dipped below the cap and later recovered — precisely the positions a real stop
+would have cut. The property test settles it: on a synthetic zero-skill book with negative
+expectancy by construction, the floor scores **+2,120** where the path-aware evaluation scores
+**−798**. A rule that turns a known-no-skill book positive is measuring its own arithmetic, not
+removing loss, and the day-clustered null could not catch it because the artifact is in how the
+number is built.
 
-**The level is derived from measured cost, not from the loss distribution**, which is the
-difference between a decision and a curve fit: a tighter cap (5 bp flat) does even better
-(+1,503,907, 82.1% of days positive) but its level is chosen from the same losses it is
-evaluated on, and its benefit is concentrated in the longest holds — the same post-entry
-quantity P12 already proved unusable. So 3× toll is the level that carries no hindsight, and the
-5 bp figure is recorded as evidence of what is *available* rather than as the specification.
+The level was also unsound on its own terms: on the real book the 0.44 bp gold cap is **touched
+on 59.9% of positions**, which makes it a toll multiplier, not a stop. Stop distance has to come
+from volatility over the holding horizon and from account risk.
+
+**What replaced it — SIZE, which is the actual mechanism of ruin here.** The framework never
+compared notional with equity:
+
+| | measured |
+|---|---|
+| mean notional vs median balance | 4,043,835 / 6,272 = **645× leverage** |
+| median per-position loss, % of balance | **7.0%** |
+| p95 per-position loss, % of balance | **233%** |
+| R1's spec stop (37.9 bp), % of balance per position | **244%** |
+| size at 0.5% risk / 10 bp stop / $1,125 equity | **$5,625 notional** |
+| size actually traded | **4,043,835 — 717× oversized** |
+
+The account drawdown stop, run on the event-ordered equity path the day limit should have used,
+fires: **101% drawdown, trough −1,297** (trigger set at 25%). That is what explains the account,
+and it needs no alpha and no cap — it needs size tied to equity. `src/risk_rules.leverage_profile`,
+`.size_for` and `.kill_switch` are built and tested for exactly that.
 
 **What this is not.** A counterfactual on history in which the rules did not exist. The forward
 test is the point: freeze `artifacts/risk_spec.json`, run it on demo for 20 sessions, and judge
