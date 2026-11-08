@@ -533,31 +533,51 @@ def leverage_profile(trades: pd.DataFrame) -> dict:
 
 
 def size_for(equity: float, *, risk_frac: float, stop_bp: float,
-             max_leverage: float = 10.0) -> float:
+             max_leverage: float = 10.0, min_notional: float = 0.0) -> float:
     """Position notional that risks ``risk_frac`` of equity over a ``stop_bp`` stop.
 
     risk_frac 0.005 with a 10 bp stop on 1,125 of equity gives notional
-    1125 * 0.005 / (10/1e4) = 5,625 - against the 40k the account actually traded. The leverage
-    ceiling is applied on top, because a tight stop on a small risk fraction can still ask for
-    an uncapitalisable position.
+    1125 * 0.005 / (10/1e4) = 5,625 - against the 40k the account actually traded.
+
+    ``min_notional`` is the VENUE's minimum tradable notional (gold's 0.01 lot is about \$380).
+    If the sizing rule lands below it, the correct answer is 0 - DO NOT TRADE - because the
+    venue floor would force a size many times the intended risk. The live monitor on a \$0.54
+    account computed \$2.70 of notional and would have been unable to trade it at all; returning
+    0 with a reason is the honest output, and it is what keeps a small account from being forced
+    into an oversized position by a rounding floor.
     """
     if stop_bp <= 0:
         raise ValueError("stop_bp must be positive")
     risk_money = equity * risk_frac
     notional = risk_money / (stop_bp / 1e4)
-    return min(notional, equity * max_leverage)
+    notional = min(notional, equity * max_leverage)
+    if notional < min_notional:
+        return 0.0
+    return notional
 
 
 def sizing_recommendation(equity: float, *, stop_bp: float,
-                          risk_frac: float = 0.005,
-                          max_leverage: float = 10.0) -> dict:
+                           risk_frac: float = 0.005,
+                           max_leverage: float = 10.0,
+                           min_notional: float = 0.0) -> dict:
+    """With ``tradable``: False when the rule lands below the venue's minimum notional.
+
+    The monitor returns that instead of a number, because the alternative - rounding up to the
+    venue minimum - silently trades a size the risk rule never sanctioned.
+    """
+    n = size_for(equity, risk_frac=risk_frac, stop_bp=stop_bp,
+                 max_leverage=max_leverage, min_notional=min_notional)
     return {
         "equity": round(equity, 2),
         "stop_bp": round(stop_bp, 3),
         "risk_frac": risk_frac,
         "max_leverage": max_leverage,
-        "notional": round(size_for(equity, risk_frac=risk_frac, stop_bp=stop_bp,
-                                   max_leverage=max_leverage), 2),
+        "min_notional": min_notional,
+        "notional": round(n, 2),
+        "tradable": n > 0,
+        "reason": "" if n > 0 else (
+            f"equity {equity:.2f} at {risk_frac:.3%} risk over a {stop_bp:.1f}bp stop gives "
+            f"notional below the venue minimum {min_notional:.2f} - do not trade"),
         "risk_money_per_trade": round(equity * risk_frac, 2),
         "worst_day_at_this_size": round(equity * risk_frac * 5, 2),
     }

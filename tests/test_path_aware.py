@@ -144,6 +144,65 @@ def test_kill_switch_runs_on_equity_not_on_accumulated_pnl() -> None:
     k2 = rr.kill_switch([100.0, 101.0, 102.0, 103.0], peak_dd_frac=0.25)
     assert k2["drawdown_stop_triggered"] is False
     assert k2["max_drawdown_pct"] == 0.0
+
+
+
+# --------------------------------------------------------------------------
+# Units and the live monitor, both verified against the broker rather than assumed
+# --------------------------------------------------------------------------
+
+def test_money_fields_are_cents_not_dollars() -> None:
+    """Verified live against the broker, and the reason I told the repo the reviewer was wrong.
+
+    ProtoOATraderReq on account 47477688 returns ``balance: 54`` with ``moneyDigits: 2`` and
+    ``leverageInCents: 50000``. So the live balance is $0.54 and the account is 500x levered, and
+    every USD figure this repo quoted before this test was 100x too large. The property is what
+    makes the mistake non-repeatable: the divisor comes from the broker's own field, not from an
+    assumption about dollars.
+    """
+    from src import risk_rules as rr
+
+    assert rr.MONEY_DIVISOR == 100.0
+    assert rr.load_money(54) == 0.54
+    assert rr.load_money(112508) == 1125.08
+    assert rr.load_money(-602934) == -6029.34
+
+
+def test_venue_floor_returns_do_not_trade_not_a_rounded_size() -> None:
+    """A $0.54 account must return 0, not the $2.70 the arithmetic gives.
+
+    Rounding up to the venue's minimum would silently trade a size the risk rule never
+    sanctioned. The live monitor hit this on its first run and printed $2.70, which is how the
+    defect was found.
+    """
+    from src import risk_rules as rr
+
+    r = rr.sizing_recommendation(0.54, stop_bp=10.0, max_leverage=10.0, min_notional=380.0)
+    assert r["notional"] == 0.0, r
+    assert r["tradable"] is False, r
+    assert "do not trade" in r["reason"].lower(), r
+    # an account that CAN carry the minimum is unaffected by the floor
+    ok = rr.sizing_recommendation(1125.0, stop_bp=10.0, max_leverage=10.0, min_notional=380.0)
+    assert ok["tradable"] and ok["notional"] == 5625.0, ok
+
+
+def test_monitor_module_imports_and_advertises_the_floor() -> None:
+    p = Path(__file__).resolve().parents[2] / "ctrader" / "ctbridge" / "risk_monitor.py"
+    if not p.exists():
+        return
+    # register in sys.modules before exec, or risk_rules' dataclass decorators resolve
+    # __module__ to a None entry and raise AttributeError
+    spec = importlib.util.spec_from_file_location("risk_monitor", p)
+    m = importlib.util.module_from_spec(spec)
+    sys.modules["risk_monitor"] = m
+    spec.loader.exec_module(m)
+    assert hasattr(m, "RiskMonitor")
+    assert m.VENDUE_MIN_NOTIONAL.get("XAUUSD", 0) > 0
+    # sizing must route through the floor, not bypass it
+    src = p.read_text(encoding="utf-8")
+    assert "min_notional=VENDUE_MIN_NOTIONAL.get(symbol" in src, "monitor must use the venue floor"
+    assert "DO NOT TRADE" in src, "the untradable path must be visible in the log"
+
 def main() -> None:
     # MUST STAY AT THE END. A test appended after this point is never registered by the scan -
     # the same defect that made 9 tests pass while a 10th existed, twice in this repo now.
