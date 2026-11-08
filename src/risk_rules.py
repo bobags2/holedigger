@@ -33,8 +33,13 @@ objection that retired the MT5 "hold <=30s was +0.775 bp" claim. R0 (max hold) i
 deliberately absent from the counterfactual and belongs in the forward test only.
 
 THE COUNTERFACTUALS ARE NOT ALL EQUAL, and the difference is load-bearing:
-  R1, R2, R5 - CAPS. If a position lost more than the cap it would have been stopped at the
-      cap, so the counterfactual P&L is computable and honest.
+  R1, R2, R5 - CAPS, AND THEIR EVALUATION IS PATH-UNAWARE, WHICH IS THE DEFECT THIS MODULE
+      HAD. Flooring the final P&L at the cap keeps every position that dipped below the cap and
+      later recovered - exactly the positions a real stop would have cut. Verified on a
+      zero-skill synthetic book with negative expectancy by construction: the floor scored
+      +2,120 where the path-aware evaluation scored -798 (research/p19). The path-aware
+      evaluator is research/p19_path_aware_stops.py; nothing here should be used as a result
+      until it is scored that way.
   R4 - TRUNCATION. Dropping the trades after the Nth means dropping trades we ALREADY KNOW
       lost, because the limit would have been hit by the ones that did. This biases the
       counterfactual in our favour and is reported separately as an upper bound, never as
@@ -390,6 +395,18 @@ def forward_test(symbol_to_toll_bp: dict[str, float], *, cap_multiple: float = 3
 
 def evaluate_forward(trades: pd.DataFrame, spec: dict, *, by_hour: bool = True,
                      toll_by_hour: dict | None = None) -> dict:
+    """Score a book against the frozen forward spec.
+
+    *** THIS EVALUATION IS PATH-UNAWARE AND ITS HEADLINE NUMBERS ARE NOT RESULTS. ***
+
+    It floors each position's final P&L at the cap. A stop fires when the price path TOUCHES
+    the level, so this keeps every position that dipped below the cap and recovered - the ones
+    a real stop would have cut. The zero-skill property test proves it: on a synthetic book
+    built to have negative expectancy by construction, this function returns a POSITIVE net.
+
+    Use ``research/p19_path_aware_stops.path_aware`` for any claim that will be acted on. This
+    remains only as the place the frozen spec is defined, and for the property test to fail.
+    """
     """Score a book against the frozen forward spec, and null it by day.
 
     The null keeps the day-clustered structure honest: permuting the sign of whole days is the
@@ -465,3 +482,92 @@ def evaluate_forward(trades: pd.DataFrame, spec: dict, *, by_hour: bool = True,
         "book_untouched": kept_frac >= tg.get("book_untouched_min", 0.8),
     }
     return res
+
+
+# ---------------------------------------------------------------------------
+# Sizing - the finding the framework missed, and the one that matters most
+# ---------------------------------------------------------------------------
+
+def leverage_profile(trades: pd.DataFrame) -> dict:
+    """Size versus equity, measured. This is what the cap framework never looked at.
+
+    A stop in bp of notional says nothing about size relative to the account, and size is the
+    actual mechanism of ruin. On the corrected cTrader book: mean notional 4,043,835 against a
+    median balance of 6,272 (645x), a median per-position loss of 7.0% of balance, a p95 of
+    67.2%, and R1's 37.9 bp stop sizing a single position at 244% of the account.
+    """
+    t = trades.dropna(subset=["profit", "notional", "balance_after"]).copy()
+    if t.empty:
+        return {"n": 0}
+    bal = t["balance_after"].to_numpy(float)
+    notional = t["notional"].to_numpy(float)
+    loss_pct = np.where(bal > 0, -t["profit"].to_numpy(float) / np.where(bal > 0, bal, np.nan) * 100.0,
+                        np.nan)
+    l = loss_pct[t["profit"].to_numpy() < 0]
+    l = l[np.isfinite(l)]
+    return {
+        "n": int(len(t)),
+        "median_balance": round(float(np.nanmedian(bal)), 2),
+        "mean_notional": round(float(notional.mean()), 2),
+        "median_notional": round(float(np.nanmedian(notional)), 2),
+        "leverage_mean_notional_over_median_balance": round(
+            float(notional.mean() / max(np.nanmedian(bal), 1e-9)), 1),
+        "median_loss_pct_of_balance": round(float(np.median(l)), 2) if len(l) else None,
+        "p95_loss_pct_of_balance": round(float(np.quantile(l, 0.95)), 2) if len(l) else None,
+        "max_loss_pct_of_balance": round(float(np.nanmax(l)), 1) if len(l) else None,
+    }
+
+
+def size_for(equity: float, *, risk_frac: float, stop_bp: float,
+             max_leverage: float = 10.0) -> float:
+    """Position notional that risks ``risk_frac`` of equity over a ``stop_bp`` stop.
+
+    risk_frac 0.005 with a 10 bp stop on 1,125 of equity gives notional
+    1125 * 0.005 / (10/1e4) = 5,625 - against the 40k the account actually traded. The leverage
+    ceiling is applied on top, because a tight stop on a small risk fraction can still ask for
+    an uncapitalisable position.
+    """
+    if stop_bp <= 0:
+        raise ValueError("stop_bp must be positive")
+    risk_money = equity * risk_frac
+    notional = risk_money / (stop_bp / 1e4)
+    return min(notional, equity * max_leverage)
+
+
+def sizing_recommendation(equity: float, *, stop_bp: float,
+                          risk_frac: float = 0.005,
+                          max_leverage: float = 10.0) -> dict:
+    return {
+        "equity": round(equity, 2),
+        "stop_bp": round(stop_bp, 3),
+        "risk_frac": risk_frac,
+        "max_leverage": max_leverage,
+        "notional": round(size_for(equity, risk_frac=risk_frac, stop_bp=stop_bp,
+                                   max_leverage=max_leverage), 2),
+        "risk_money_per_trade": round(equity * risk_frac, 2),
+        "worst_day_at_this_size": round(equity * risk_frac * 5, 2),
+    }
+
+
+def kill_switch(equity_history: list[float], *, peak_dd_frac: float = 0.25) -> dict:
+    """Account-level drawdown stop on REALISED + FLOATING equity, in event order.
+
+    The rules that ran on final-P&L accumulations cannot see this, which is why the account
+    reached -13 against a 1% day limit: the limit was checked on the wrong series.
+    """
+    e = np.asarray(equity_history, dtype=float)
+    e = e[np.isfinite(e)]
+    if not len(e):
+        return {"n": 0}
+    peak = np.maximum.accumulate(e)
+    dd = 1.0 - e / np.where(peak > 0, peak, np.nan)
+    i = int(np.nanargmax(dd)) if np.isfinite(dd).any() else 0
+    return {
+        "n": len(e),
+        "start": round(float(e[0]), 2),
+        "trough": round(float(e[i]), 2),
+        "trough_index": i,
+        "max_drawdown_pct": round(float(np.nanmax(dd) * 100), 1),
+        "drawdown_stop_triggered": bool(np.nanmax(dd) >= peak_dd_frac),
+        "drawdown_stop_pct": peak_dd_frac * 100,
+    }

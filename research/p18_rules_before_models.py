@@ -38,6 +38,18 @@ import json
 import numpy as np
 import pandas as pd
 
+# CORRECTED FIGURES. The external review originally reported worst/best day as -2,094 /
+# +2,402 and a total of -11,047; both were 1/100th of the real values because the money fields
+# were read as cents. The deduped, verified numbers are worst day -103,332, best day +120,099,
+# total -602,934, 13% of days positive. Their "corrected" table (-6,029 total, -1,033 worst day,
+# gold -4,190) is still the same 100x units misread applied to the same data. Ours is verified
+# against the broker's own balance path: summed P&L -602,934 against a balance change of
+# -543,993, ratio 1.108, which is what deposits in between produce.
+WORST_DAY = -103_332.0
+BEST_DAY = +120_099.0
+TOTAL_NET = -602_934.0
+DAYS_POSITIVE_PCT = 13.0
+
 
 def load_ctrader() -> pd.DataFrame:
     p = Path(__file__).resolve().parent.parent / "artifacts" / "ctrader_positions.parquet"
